@@ -39,6 +39,7 @@ def test_index_html_home_and_flow():
     assert "Central de integrações" in text
 
     assert "Cadastrar Cliente" in text
+    assert "Excluir Clientes" in text
 
     assert "Informe o CNPJ" in text
 

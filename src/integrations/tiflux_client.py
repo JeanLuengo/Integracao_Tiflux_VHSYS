@@ -116,6 +116,64 @@ class TifluxClient:
 
 
 
+    async def find_matches_by_cnpj(self, cnpj_digits: str, limit: int = 10) -> list[dict]:
+
+        match = await self.find_by_cnpj(cnpj_digits)
+
+        return [match] if match else []
+
+
+
+    async def find_by_name(self, name: str, limit: int = 10) -> list[dict]:
+
+        term = (name or "").strip()
+
+        if not term:
+
+            return []
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+
+            response = await client.get(
+
+                f"{self._base}/clients",
+
+                headers=self._auth_headers(),
+
+                params={"name": term, "offset": 1, "limit": min(limit, self.PAGE_LIMIT)},
+
+            )
+
+        self._ensure_ok(response, "buscar cliente TiFlux por nome")
+
+        return _extract_client_list(response.json())[:limit]
+
+
+
+    async def delete_client(self, client_id: int) -> None:
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+
+            response = await client.delete(
+
+                f"{self._base}/clients/{client_id}",
+
+                headers=self._auth_headers(),
+
+            )
+
+        if response.status_code in (200, 204):
+
+            return
+
+        if response.status_code == 404:
+
+            raise TifluxApiError("Cliente não encontrado no TiFlux.", 404, response.text)
+
+        self._ensure_ok(response, "excluir cliente TiFlux")
+
+
+
     async def get_by_id(self, client_id: int) -> dict | None:
 
         async with httpx.AsyncClient(timeout=30.0) as client:

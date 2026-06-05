@@ -78,6 +78,22 @@ src/
 - Obrigatório na spec: `razao_cliente`
 - Dedup: `GET /clientes?cnpj_cliente={formatado}`
 
+## Fluxo exclusão de clientes
+
+```mermaid
+flowchart LR
+  UI[UI Excluir] --> P[POST /excluir/preview]
+  P --> TF[GET TiFlux clients]
+  P --> VH[GET VHSYS clientes]
+  UI --> D[POST /excluir]
+  D --> TF2[DELETE TiFlux /clients/id]
+  D --> VH2[DELETE VHSYS /clientes/id_cliente]
+```
+
+- Busca: CNPJ → `social_revenue` (TiFlux) + `cnpj_cliente` (VHSYS); nome → `name` / `razao_cliente` + `fantasia_cliente`
+- Exclusão usa **ID interno**, nunca CNPJ no path DELETE
+- TiFlux: remoção permanente; VHSYS: lixeira (`lixeira=Sim` na listagem)
+
 ## Modelo canônico (`CompanyPayload`)
 
 | Campo | Origem BrasilAPI |

@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from src.cnpj.brasilapi_client import BrasilApiError, fetch_cnpj
-from src.cnpj.validator import normalize_cnpj, validate_cnpj
+from src.cnpj.validator import format_cnpj, normalize_cnpj, validate_cnpj
 from src.config import Settings
 from src.integrations.tiflux_client import (
     TifluxApiError,
@@ -45,6 +45,51 @@ class IntegrationResult:
             "success": self.success,
             "partial": self.partial,
             "company": company_to_dict(self.company) if self.company else None,
+            "tiflux": _system_dict(self.tiflux),
+            "vhsys": _system_dict(self.vhsys),
+        }
+
+
+@dataclass
+@dataclass
+class DeleteSystemPreview:
+    found: bool
+    matches: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"found": self.found, "matches": self.matches}
+
+
+@dataclass
+class DeletePreviewResult:
+    query: str
+    search_mode: str
+    tiflux: DeleteSystemPreview
+    vhsys: DeleteSystemPreview
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": True,
+            "query": self.query,
+            "search_mode": self.search_mode,
+            "tiflux": self.tiflux.to_dict(),
+            "vhsys": self.vhsys.to_dict(),
+        }
+
+
+@dataclass
+class DeleteResult:
+    query: str
+    tiflux: SystemResult = field(default_factory=lambda: SystemResult(success=False))
+    vhsys: SystemResult = field(default_factory=lambda: SystemResult(success=False))
+    partial: bool = False
+    success: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "query": self.query,
+            "success": self.success,
+            "partial": self.partial,
             "tiflux": _system_dict(self.tiflux),
             "vhsys": _system_dict(self.vhsys),
         }
@@ -283,6 +328,145 @@ async def integrate_company(
     ok_count = int(tf_res.success) + int(vh_res.success)
     result.partial = ok_count == 1
     result.success = ok_count == 2
+
+    return result
+
+
+def _tiflux_match_summary(item: dict) -> dict[str, Any]:
+    return {
+        "id": item.get("id"),
+        "name": item.get("name") or "",
+        "social": item.get("social") or "",
+        "social_revenue": item.get("social_revenue") or "",
+        "status": item.get("status"),
+    }
+
+
+def _vhsys_match_summary(item: dict) -> dict[str, Any]:
+    return {
+        "id": item.get("id_cliente"),
+        "razao_cliente": item.get("razao_cliente") or "",
+        "fantasia_cliente": item.get("fantasia_cliente") or "",
+        "cnpj_cliente": item.get("cnpj_cliente") or "",
+        "situacao_cliente": item.get("situacao_cliente") or "",
+    }
+
+
+def _resolve_delete_search(query: str) -> tuple[str, str]:
+    raw = (query or "").strip()
+    if not raw:
+        raise OrchestratorError("Informe um CNPJ ou nome para buscar.", 400)
+    digits = normalize_cnpj(raw)
+    if len(digits) == 14 and validate_cnpj(digits):
+        return "cnpj", digits
+    if len(digits) == 14:
+        raise OrchestratorError("CNPJ inválido.", 400)
+    if len(raw) < 3:
+        raise OrchestratorError("Informe ao menos 3 caracteres para busca por nome.", 400)
+    return "name", raw
+
+
+async def preview_delete_client(query: str, settings: Settings) -> DeletePreviewResult:
+    _ensure_credentials(settings)
+    search_mode, term = _resolve_delete_search(query)
+
+    tiflux = TifluxClient(settings)
+    vhsys = VhsysClient(settings)
+
+    async def _search_tiflux() -> list[dict]:
+        if search_mode == "cnpj":
+            return await tiflux.find_matches_by_cnpj(term, limit=10)
+        return await tiflux.find_by_name(term, limit=10)
+
+    async def _search_vhsys() -> list[dict]:
+        if search_mode == "cnpj":
+            return await vhsys.find_matches_by_cnpj(format_cnpj(term), limit=10)
+        return await vhsys.find_by_name(term, limit=10)
+
+    try:
+        tf_items, vh_items = await asyncio.gather(_search_tiflux(), _search_vhsys())
+    except (TifluxApiError, VhsysApiError) as exc:
+        raise OrchestratorError(str(exc), getattr(exc, "status_code", None) or 502) from exc
+
+    tf_matches = [_tiflux_match_summary(x) for x in tf_items if x.get("id") is not None]
+    vh_matches = [_vhsys_match_summary(x) for x in vh_items if x.get("id_cliente") is not None]
+
+    display_query = format_cnpj(term) if search_mode == "cnpj" else term
+
+    return DeletePreviewResult(
+        query=display_query,
+        search_mode=search_mode,
+        tiflux=DeleteSystemPreview(found=bool(tf_matches), matches=tf_matches),
+        vhsys=DeleteSystemPreview(found=bool(vh_matches), matches=vh_matches),
+    )
+
+
+async def execute_delete(
+    query: str,
+    settings: Settings,
+    *,
+    tiflux_client_id: int | None = None,
+    vhsys_client_id: int | None = None,
+) -> DeleteResult:
+    _ensure_credentials(settings)
+    search_mode, term = _resolve_delete_search(query)
+    display_query = format_cnpj(term) if search_mode == "cnpj" else term
+
+    if tiflux_client_id is None and vhsys_client_id is None:
+        raise OrchestratorError(
+            "Selecione ao menos um cliente para excluir (TiFlux ou VHSYS).",
+            400,
+        )
+
+    tiflux = TifluxClient(settings)
+    vhsys = VhsysClient(settings)
+    result = DeleteResult(query=display_query)
+
+    async def _tiflux_delete() -> SystemResult:
+        if tiflux_client_id is None:
+            return SystemResult(
+                success=True,
+                skipped=True,
+                message="TiFlux não selecionado para exclusão.",
+            )
+        try:
+            await tiflux.delete_client(int(tiflux_client_id))
+            return SystemResult(
+                success=True,
+                message="Cliente excluído no TiFlux.",
+                data={"id": tiflux_client_id},
+            )
+        except TifluxApiError as exc:
+            return SystemResult(success=False, error=str(exc), message="Falha no TiFlux.")
+
+    async def _vhsys_delete() -> SystemResult:
+        if vhsys_client_id is None:
+            return SystemResult(
+                success=True,
+                skipped=True,
+                message="VHSYS não selecionado para exclusão.",
+            )
+        try:
+            data = await vhsys.delete_client(vhsys_client_id)
+            return SystemResult(
+                success=True,
+                message="Cliente enviado à lixeira no VHSYS.",
+                data=data,
+            )
+        except VhsysApiError as exc:
+            return SystemResult(success=False, error=str(exc), message="Falha no VHSYS.")
+
+    tf_res, vh_res = await asyncio.gather(_tiflux_delete(), _vhsys_delete())
+    result.tiflux = tf_res
+    result.vhsys = vh_res
+
+    attempted = [
+        r for r, selected in ((tf_res, tiflux_client_id is not None), (vh_res, vhsys_client_id is not None))
+        if selected
+    ]
+    ok_count = sum(1 for r in attempted if r.success)
+    result.success = bool(attempted) and ok_count == len(attempted)
+    result.partial = bool(attempted) and 0 < ok_count < len(attempted)
 
     return result
 

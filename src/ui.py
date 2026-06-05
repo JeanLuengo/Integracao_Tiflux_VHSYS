@@ -234,6 +234,46 @@ INDEX_HTML = """<!DOCTYPE html>
 
     .menu-item.disabled { opacity: 0.55; cursor: not-allowed; }
 
+    .menu-item.menu-danger:hover:not(.disabled) {
+
+      border-color: #fecaca;
+
+      box-shadow: 0 4px 16px rgba(185, 28, 28, 0.12);
+
+    }
+
+    .menu-icon.danger { background: var(--avs-error-bg); color: var(--avs-error); }
+
+    .btn-danger { background: var(--avs-error); color: #fff; }
+
+    .btn-danger:hover:not(:disabled) { background: #991b1b; }
+
+    .match-list {
+
+      border: 1px solid var(--avs-border); border-radius: 8px;
+
+      padding: 0.75rem; margin-top: 0.5rem; background: #fafbfc;
+
+    }
+
+    .match-item {
+
+      display: flex; align-items: flex-start; gap: 0.55rem;
+
+      padding: 0.5rem 0; border-bottom: 1px solid var(--avs-border);
+
+      font-size: 0.88rem;
+
+    }
+
+    .match-item:last-child { border-bottom: none; }
+
+    .match-item input { margin-top: 0.25rem; accent-color: var(--avs-error); }
+
+    .match-item small { color: var(--avs-muted); display: block; font-size: 0.78rem; }
+
+    .skip-row { margin-top: 0.5rem; font-size: 0.88rem; }
+
     .menu-item h3 { font-size: 1rem; color: var(--avs-navy); margin-bottom: 0.35rem; }
 
     .menu-item p { font-size: 0.85rem; color: var(--avs-muted); }
@@ -500,13 +540,13 @@ INDEX_HTML = """<!DOCTYPE html>
 
           </div>
 
-          <div class="menu-item disabled">
+          <div class="menu-item menu-danger" id="menuExcluir" role="button" tabindex="0">
 
-            <div class="menu-icon" style="background:#94a3b8;">…</div>
+            <div class="menu-icon danger">×</div>
 
-            <h3>Em breve</h3>
+            <h3>Excluir Clientes</h3>
 
-            <p>Novas integrações serão disponibilizadas neste menu.</p>
+            <p>Busca por CNPJ ou nome e remove em TiFlux e VHSYS.</p>
 
           </div>
 
@@ -722,6 +762,134 @@ INDEX_HTML = """<!DOCTYPE html>
 
     </section>
 
+
+
+    <!-- FLUXO EXCLUSÃO -->
+
+    <section id="panelDeleteFlow" class="panel">
+
+      <div class="steps" id="stepsDeleteBar">
+
+        <span class="step active" data-delete-step="1">1. Busca</span>
+
+        <span class="step" data-delete-step="2">2. Conferência</span>
+
+        <span class="step" data-delete-step="3">3. Resultado</span>
+
+      </div>
+
+
+
+      <div id="deleteSubPanel1" class="card panel active">
+
+        <h2 class="card-title">Excluir cliente</h2>
+
+        <p class="card-sub">Informe o CNPJ ou o nome (razão social / fantasia) do cliente.</p>
+
+        <div id="alertDeleteSearch" class="alert alert-error" hidden>
+
+          <span class="alert-icon">!</span>
+
+          <div class="alert-body"><strong>Não foi possível continuar</strong><span id="alertDeleteSearchText"></span></div>
+
+        </div>
+
+        <form id="formDeleteSearch">
+
+          <label for="delete_query">CNPJ ou nome do cliente</label>
+
+          <input id="delete_query" name="query" placeholder="00.000.000/0000-00 ou razão social" required autocomplete="off">
+
+          <div class="actions">
+
+            <button type="button" class="btn-secondary" id="btnCancelarDelete">Cancelar</button>
+
+            <button type="submit" class="btn-primary" id="btnBuscarDelete">Buscar</button>
+
+          </div>
+
+        </form>
+
+      </div>
+
+
+
+      <div id="deleteSubPanel2" class="card panel">
+
+        <h2 class="card-title">Conferir antes de excluir</h2>
+
+        <p class="card-sub">Selecione o registro em cada sistema. TiFlux remove permanentemente; VHSYS envia à lixeira.</p>
+
+        <div id="alertDeleteReview" class="alert alert-error" hidden>
+
+          <span class="alert-icon">!</span>
+
+          <div class="alert-body"><strong>Verifique a seleção</strong><span id="alertDeleteReviewText"></span></div>
+
+        </div>
+
+        <div class="section-title">TiFlux</div>
+
+        <div id="tifluxMatchesBox" class="match-list"></div>
+
+        <label class="checkbox-row skip-row" id="skipTifluxRow" hidden>
+
+          <input type="checkbox" id="skip_tiflux"> Não excluir no TiFlux
+
+        </label>
+
+
+
+        <div class="section-title">VHSYS</div>
+
+        <div id="vhsysMatchesBox" class="match-list"></div>
+
+        <label class="checkbox-row skip-row" id="skipVhsysRow" hidden>
+
+          <input type="checkbox" id="skip_vhsys"> Não excluir no VHSYS
+
+        </label>
+
+
+
+        <label class="checkbox-row" style="margin-top:1rem;">
+
+          <input type="checkbox" id="confirmDeleteAck">
+
+          Entendo que a exclusão no TiFlux é irreversível e no VHSYS envia o cliente à lixeira.
+
+        </label>
+
+
+
+        <div class="actions">
+
+          <button type="button" class="btn-secondary" id="btnVoltarDelete">Voltar</button>
+
+          <button type="button" class="btn-danger" id="btnConfirmarDelete" disabled>Confirmar exclusão</button>
+
+        </div>
+
+      </div>
+
+
+
+      <div id="deleteSubPanel3" class="card panel">
+
+        <div class="result-box" id="deleteResultBox"></div>
+
+        <div class="actions" style="justify-content:center;">
+
+          <button type="button" class="btn-secondary" id="btnInicioDelete">Voltar ao início</button>
+
+          <button type="button" class="btn-primary" id="btnNovaExclusao">Nova exclusão</button>
+
+        </div>
+
+      </div>
+
+    </section>
+
   </main>
 
 
@@ -730,13 +898,29 @@ INDEX_HTML = """<!DOCTYPE html>
 
     let previewData = null;
 
+    let deletePreviewData = null;
+
 
 
     const panelHome = document.getElementById('panelHome');
 
     const panelFlow = document.getElementById('panelFlow');
 
+    const panelDeleteFlow = document.getElementById('panelDeleteFlow');
+
     const btnHomeTop = document.getElementById('btnHomeTop');
+
+    const deleteSubPanels = [
+
+      document.getElementById('deleteSubPanel1'),
+
+      document.getElementById('deleteSubPanel2'),
+
+      document.getElementById('deleteSubPanel3'),
+
+    ];
+
+    const deleteStepEls = document.querySelectorAll('#stepsDeleteBar .step');
 
     const subPanels = [document.getElementById('subPanel1'), document.getElementById('subPanel2'), document.getElementById('subPanel3')];
 
@@ -750,6 +934,8 @@ INDEX_HTML = """<!DOCTYPE html>
 
       panelFlow.classList.remove('active');
 
+      panelDeleteFlow.classList.remove('active');
+
       btnHomeTop.hidden = true;
 
     }
@@ -761,6 +947,8 @@ INDEX_HTML = """<!DOCTYPE html>
       panelHome.classList.remove('active');
 
       panelFlow.classList.add('active');
+
+      panelDeleteFlow.classList.remove('active');
 
       btnHomeTop.hidden = false;
 
@@ -1315,6 +1503,462 @@ INDEX_HTML = """<!DOCTYPE html>
       hideAlerts();
 
       showFlow(1);
+
+    });
+
+
+
+    function showDeleteFlow(step) {
+
+      panelHome.classList.remove('active');
+
+      panelFlow.classList.remove('active');
+
+      panelDeleteFlow.classList.add('active');
+
+      btnHomeTop.hidden = false;
+
+      deleteSubPanels.forEach((p, i) => p.classList.toggle('active', i + 1 === step));
+
+      deleteStepEls.forEach(el => {
+
+        const n = Number(el.dataset.deleteStep);
+
+        el.classList.toggle('active', n === step);
+
+        el.classList.toggle('done', n < step);
+
+      });
+
+    }
+
+
+
+    function renderDeleteMatches(container, matches, system) {
+
+      container.innerHTML = '';
+
+      if (!matches.length) {
+
+        container.innerHTML = '<p class="hint">Nenhum cliente encontrado.</p>';
+
+        return;
+
+      }
+
+      const inputName = system === 'tiflux' ? 'tiflux_pick' : 'vhsys_pick';
+
+      matches.forEach((m, idx) => {
+
+        const label = document.createElement('label');
+
+        label.className = 'match-item';
+
+        const cb = document.createElement('input');
+
+        cb.type = 'radio';
+
+        cb.name = inputName;
+
+        cb.value = String(system === 'tiflux' ? m.id : m.id);
+
+        if (matches.length === 1) cb.checked = true;
+
+        const text = document.createElement('span');
+
+        if (system === 'tiflux') {
+
+          text.innerHTML = '<strong>' + escapeHtml(m.name || m.social || 'Cliente') + '</strong>' +
+
+            '<small>Razão: ' + escapeHtml(m.social || '—') + '</small>' +
+
+            '<small>CNPJ: ' + escapeHtml(m.social_revenue || '—') + ' · ID ' + m.id + '</small>';
+
+        } else {
+
+          text.innerHTML = '<strong>' + escapeHtml(m.fantasia_cliente || m.razao_cliente || 'Cliente') + '</strong>' +
+
+            '<small>Razão: ' + escapeHtml(m.razao_cliente || '—') + '</small>' +
+
+            '<small>CNPJ: ' + escapeHtml(m.cnpj_cliente || '—') + ' · ID ' + m.id + '</small>';
+
+        }
+
+        label.appendChild(cb);
+
+        label.appendChild(text);
+
+        container.appendChild(label);
+
+      });
+
+    }
+
+
+
+    function updateDeleteConfirmButton() {
+
+      const btn = document.getElementById('btnConfirmarDelete');
+
+      const ack = document.getElementById('confirmDeleteAck').checked;
+
+      const tf = deletePreviewData?.tiflux;
+
+      const vh = deletePreviewData?.vhsys;
+
+      let ok = ack && (tf?.found || vh?.found);
+
+      if (tf?.found && !document.getElementById('skip_tiflux').checked) {
+
+        ok = ok && !!document.querySelector('input[name="tiflux_pick"]:checked');
+
+      }
+
+      if (vh?.found && !document.getElementById('skip_vhsys').checked) {
+
+        ok = ok && !!document.querySelector('input[name="vhsys_pick"]:checked');
+
+      }
+
+      btn.disabled = !ok;
+
+    }
+
+
+
+    function fillDeleteReview(data) {
+
+      const tf = data.tiflux || {};
+
+      const vh = data.vhsys || {};
+
+      renderDeleteMatches(document.getElementById('tifluxMatchesBox'), tf.matches || [], 'tiflux');
+
+      renderDeleteMatches(document.getElementById('vhsysMatchesBox'), vh.matches || [], 'vhsys');
+
+      document.getElementById('skipTifluxRow').hidden = !tf.found;
+
+      document.getElementById('skipVhsysRow').hidden = !vh.found;
+
+      document.getElementById('skip_tiflux').checked = false;
+
+      document.getElementById('skip_vhsys').checked = false;
+
+      document.getElementById('confirmDeleteAck').checked = false;
+
+      updateDeleteConfirmButton();
+
+    }
+
+
+
+    function renderDeleteResult(data) {
+
+      const box = document.getElementById('deleteResultBox');
+
+      const tf = data.tiflux || {};
+
+      const vh = data.vhsys || {};
+
+      let iconClass = 'err', titleClass = 'err', icon = '✕', title = 'Exclusão não concluída';
+
+      let detail = data.error || tf.error || vh.error || 'Ocorreu um erro inesperado.';
+
+
+
+      if (data.success) {
+
+        iconClass = titleClass = 'ok'; icon = '✓';
+
+        title = 'Exclusão concluída';
+
+        detail = 'Operação finalizada nos sistemas selecionados.';
+
+      } else if (data.partial) {
+
+        iconClass = titleClass = 'partial'; icon = '◐';
+
+        title = 'Exclusão parcial';
+
+        const parts = [];
+
+        if (tf.success) parts.push('TiFlux: ' + (tf.message || 'OK'));
+
+        else if (!tf.skipped) parts.push('TiFlux: ' + (tf.error || tf.message || 'Falha'));
+
+        if (vh.success) parts.push('VHSYS: ' + (vh.message || 'OK'));
+
+        else if (!vh.skipped) parts.push('VHSYS: ' + (vh.error || vh.message || 'Falha'));
+
+        detail = parts.join('. ');
+
+      }
+
+
+
+      const badges = [];
+
+      if (tf.skipped) badges.push('<span class="sys-badge skip">TiFlux: ignorado</span>');
+
+      else if (tf.success) badges.push('<span class="sys-badge ok">TiFlux: excluído</span>');
+
+      else badges.push('<span class="sys-badge err">TiFlux: falhou</span>');
+
+      if (vh.skipped) badges.push('<span class="sys-badge skip">VHSYS: ignorado</span>');
+
+      else if (vh.success) badges.push('<span class="sys-badge ok">VHSYS: lixeira</span>');
+
+      else badges.push('<span class="sys-badge err">VHSYS: falhou</span>');
+
+
+
+      box.innerHTML =
+
+        '<div class="result-icon ' + iconClass + '">' + icon + '</div>' +
+
+        '<div class="result-title ' + titleClass + '">' + escapeHtml(title) + '</div>' +
+
+        '<p class="result-detail ' + (data.success ? '' : 'err') + '">' + escapeHtml(detail) + '</p>' +
+
+        '<div class="result-systems">' + badges.join('') + '</div>';
+
+    }
+
+
+
+    document.getElementById('menuExcluir').addEventListener('click', () => {
+
+      deletePreviewData = null;
+
+      document.getElementById('formDeleteSearch').reset();
+
+      document.getElementById('alertDeleteSearch').hidden = true;
+
+      document.getElementById('alertDeleteReview').hidden = true;
+
+      showDeleteFlow(1);
+
+    });
+
+    document.getElementById('menuExcluir').addEventListener('keydown', (e) => {
+
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.getElementById('menuExcluir').click(); }
+
+    });
+
+
+
+    document.getElementById('btnCancelarDelete').addEventListener('click', showHome);
+
+    document.getElementById('btnInicioDelete').addEventListener('click', showHome);
+
+
+
+    document.getElementById('formDeleteSearch').addEventListener('submit', async (e) => {
+
+      e.preventDefault();
+
+      document.getElementById('alertDeleteSearch').hidden = true;
+
+      const btn = document.getElementById('btnBuscarDelete');
+
+      btn.disabled = true;
+
+      btn.textContent = 'Buscando...';
+
+      const query = document.getElementById('delete_query').value.trim();
+
+      try {
+
+        const res = await fetch('/excluir/preview', {
+
+          method: 'POST',
+
+          headers: { 'Content-Type': 'application/json' },
+
+          body: JSON.stringify({ query }),
+
+        });
+
+        let data;
+
+        try { data = await res.json(); } catch { data = { success: false, error: 'Resposta inválida.' }; }
+
+        if (!res.ok || data.success === false) {
+
+          showAlert('alertDeleteSearch', 'alertDeleteSearchText', ' ' + (data.error || 'Busca falhou.'));
+
+          return;
+
+        }
+
+        if (!data.tiflux?.found && !data.vhsys?.found) {
+
+          showAlert('alertDeleteSearch', 'alertDeleteSearchText', ' Nenhum cliente encontrado no TiFlux nem no VHSYS.');
+
+          return;
+
+        }
+
+        deletePreviewData = data;
+
+        deletePreviewData._rawQuery = query;
+
+        fillDeleteReview(data);
+
+        showDeleteFlow(2);
+
+      } catch (err) {
+
+        showAlert('alertDeleteSearch', 'alertDeleteSearchText', ' Falha de conexão com o servidor.');
+
+      } finally {
+
+        btn.disabled = false;
+
+        btn.textContent = 'Buscar';
+
+      }
+
+    });
+
+
+
+    ['confirmDeleteAck', 'skip_tiflux', 'skip_vhsys'].forEach(id => {
+
+      document.getElementById(id).addEventListener('change', updateDeleteConfirmButton);
+
+    });
+
+    document.getElementById('tifluxMatchesBox').addEventListener('change', updateDeleteConfirmButton);
+
+    document.getElementById('vhsysMatchesBox').addEventListener('change', updateDeleteConfirmButton);
+
+
+
+    document.getElementById('btnVoltarDelete').addEventListener('click', () => showDeleteFlow(1));
+
+
+
+    document.getElementById('btnConfirmarDelete').addEventListener('click', async () => {
+
+      document.getElementById('alertDeleteReview').hidden = true;
+
+      if (!deletePreviewData) return;
+
+      const btn = document.getElementById('btnConfirmarDelete');
+
+      const tfFound = deletePreviewData.tiflux?.found;
+
+      const vhFound = deletePreviewData.vhsys?.found;
+
+      let tifluxId = null;
+
+      let vhsysId = null;
+
+      if (tfFound && !document.getElementById('skip_tiflux').checked) {
+
+        const picked = document.querySelector('input[name="tiflux_pick"]:checked');
+
+        if (!picked) {
+
+          showAlert('alertDeleteReview', 'alertDeleteReviewText', ' Selecione um cliente no TiFlux.');
+
+          return;
+
+        }
+
+        tifluxId = Number(picked.value);
+
+      }
+
+      if (vhFound && !document.getElementById('skip_vhsys').checked) {
+
+        const picked = document.querySelector('input[name="vhsys_pick"]:checked');
+
+        if (!picked) {
+
+          showAlert('alertDeleteReview', 'alertDeleteReviewText', ' Selecione um cliente no VHSYS.');
+
+          return;
+
+        }
+
+        vhsysId = Number(picked.value);
+
+      }
+
+      if (tifluxId === null && vhsysId === null) {
+
+        showAlert('alertDeleteReview', 'alertDeleteReviewText', ' Selecione ao menos um sistema para excluir.');
+
+        return;
+
+      }
+
+      btn.disabled = true;
+
+      btn.textContent = 'Excluindo...';
+
+      try {
+
+        const res = await fetch('/excluir', {
+
+          method: 'POST',
+
+          headers: { 'Content-Type': 'application/json' },
+
+          body: JSON.stringify({
+
+            query: deletePreviewData._rawQuery || deletePreviewData.query,
+
+            tiflux_client_id: tifluxId,
+
+            vhsys_client_id: vhsysId,
+
+          }),
+
+        });
+
+        let data;
+
+        try { data = await res.json(); } catch { data = { success: false, error: 'Resposta inválida.' }; }
+
+        renderDeleteResult(data);
+
+        showDeleteFlow(3);
+
+      } catch (err) {
+
+        renderDeleteResult({ success: false, error: 'Falha de conexão com o servidor.' });
+
+        showDeleteFlow(3);
+
+      } finally {
+
+        btn.disabled = false;
+
+        btn.textContent = 'Confirmar exclusão';
+
+        updateDeleteConfirmButton();
+
+      }
+
+    });
+
+
+
+    document.getElementById('btnNovaExclusao').addEventListener('click', () => {
+
+      deletePreviewData = null;
+
+      document.getElementById('formDeleteSearch').reset();
+
+      document.getElementById('alertDeleteSearch').hidden = true;
+
+      document.getElementById('alertDeleteReview').hidden = true;
+
+      showDeleteFlow(1);
 
     });
 

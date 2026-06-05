@@ -10,7 +10,7 @@ Documento de referência para operação, manutenção e pontos de atenção do 
 | **Interface** | Web local (`http://127.0.0.1:8000`) — tema AVS Tecnologia |
 | **Stack** | Python 3.11+, FastAPI, httpx, `.env` |
 
-## Fluxo da interface (4 telas)
+## Fluxo da interface — Cadastrar
 
 ```mermaid
 flowchart TD
@@ -20,10 +20,27 @@ flowchart TD
   Resultado --> Home
 ```
 
-1. **Início** — menu com “Cadastrar Cliente” (extensível no futuro).
+1. **Início** — menu com “Cadastrar Cliente” e “Excluir Clientes”.
 2. **CNPJ** — consulta BrasilAPI + carrega mesas/grupos TiFlux. Erros exibidos em alerta vermelho na tela.
 3. **Revisão** — dados editáveis + checkboxes de mesas (`desk_ids`) e grupos (`technical_group_ids`).
 4. **Resultado** — mensagem de sucesso ou erro (não JSON bruto).
+
+## Fluxo da interface — Excluir
+
+```mermaid
+flowchart TD
+  Home -->|Excluir Clientes| Busca[Passo 1: CNPJ ou nome]
+  Busca -->|POST /excluir/preview| Confere[Passo 2: Seleção + confirmação]
+  Confere -->|POST /excluir| ResDel[Passo 3: Resultado]
+  ResDel --> Home
+```
+
+1. **Busca** — informe CNPJ (14 dígitos válidos) ou nome (mín. 3 caracteres).
+2. **Conferência** — lista clientes encontrados no TiFlux e VHSYS; selecione qual excluir em cada sistema (ou marque “Não excluir”).
+3. **Confirmação** — checkbox obrigatório sobre irreversibilidade (TiFlux) e lixeira (VHSYS).
+4. **Resultado** — sucesso, parcial ou erro por sistema.
+
+**Chaves para exclusão:** as APIs não aceitam CNPJ no DELETE. O sistema busca pelo CNPJ/nome, obtém o **ID interno** (`id` no TiFlux, `id_cliente` no VHSYS) e só então chama a exclusão.
 
 ## Endpoints
 
@@ -33,6 +50,8 @@ flowchart TD
 | `GET` | `/health` | Health check |
 | `POST` | `/preview` | `cnpj` (form) → dados + opções TiFlux |
 | `POST` | `/integrar` | JSON `{ company, desk_ids, technical_group_ids }` |
+| `POST` | `/excluir/preview` | JSON `{ "query": "CNPJ ou nome" }` |
+| `POST` | `/excluir` | JSON `{ "query", "tiflux_client_id", "vhsys_client_id" }` (IDs opcionais) |
 
 ## Configuração (`.env`)
 
@@ -73,8 +92,12 @@ O TiFlux exige **`desk_ids`** e **`technical_group_ids`** no `POST /clients`. Se
 | Grupos | `GET /technical-groups` |
 | Criar cliente | `POST /clients` |
 | Buscar | `GET /clients?social_revenue=` + paginação `offset/limit` |
+| Buscar por nome | `GET /clients?name=` |
+| Excluir | `DELETE /clients/{id}` (retorno típico 204) |
 
 Documentação: [API v2 TiFlux](https://guia-de-uso.tiflux.com/integracoes/api-tiflux/api-v2), [Relacionamentos](https://guia-de-uso.tiflux.com/sistema/clientes/relacionamentos.md).
+
+**Atenção:** exclusão no painel TiFlux pode exigir 2FA; via API costuma usar só o Bearer token. Teste em homologação antes de uso em massa.
 
 ## Pontos de atenção — VHSYS
 
@@ -83,6 +106,15 @@ Documentação: [API v2 TiFlux](https://guia-de-uso.tiflux.com/integracoes/api-t
 | Base URL | `https://api.vhsys.com/v2` (não usar `api.vhsys.com.br` sem `/v2`) |
 | Busca vazia | HTTP 403 “Nenhum cliente encontrado” = não existe (não é erro fatal) |
 | Sucesso real | `code: 200` no JSON do body (não só HTTP 200) |
+
+### APIs VHSYS — exclusão
+
+| Recurso | Endpoint |
+|---------|----------|
+| Listar / buscar | `GET /clientes?cnpj_cliente=` ou `razao_cliente` / `fantasia_cliente` |
+| Excluir | `DELETE /clientes/{id_cliente}` (envia à **lixeira**; recuperável com `lixeira=Sim`) |
+
+Documentação: [Excluir cliente](https://developers.vhsys.com.br/api/excluir-cliente-16392460e0).
 
 ## Mapeamento de campos
 
