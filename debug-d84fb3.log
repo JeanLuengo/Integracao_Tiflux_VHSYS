@@ -1,122 +1,15 @@
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 14}, "timestamp": 1780433415947}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780433416694}
-{"sessionId": "d84fb3", "hypothesisId": "H1", "location": "orchestrator.py:dedup", "message": "tiflux_api_error", "data": {"err": "Erro ao listar clientes TiFlux: 400.", "status": 400}, "timestamp": 1780433417344}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "orchestrator_error", "data": {"err": "Erro ao verificar TiFlux: Erro ao listar clientes TiFlux: 400.", "status": 400}, "timestamp": 1780433417345}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 14}, "timestamp": 1780433446101}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780433446897}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780433447595}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780433447596}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": false}, "timestamp": 1780433448838}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": true, "partial": false}, "timestamp": 1780433450169}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 14}, "timestamp": 1780433457198}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780433457813}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780433458522}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780433458523}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": false}, "timestamp": 1780433459321}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": false, "partial": true}, "timestamp": 1780433460914}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 18}, "timestamp": 1780666457861}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780666460050}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780666461083}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780666461084}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": false}, "timestamp": 1780666461678}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": false, "partial": true}, "timestamp": 1780666462654}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 18}, "timestamp": 1780666735650}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780666736136}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780666736720}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780666736721}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": false}, "timestamp": 1780666737322}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": false, "partial": true}, "timestamp": 1780666738315}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780667177648}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780667178403}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780667178404}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": true}, "timestamp": 1780667179196}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 3}, "timestamp": 1780667185956}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "orchestrator_error", "data": {"err": "CNPJ inválido.", "status": 400}, "timestamp": 1780667185958}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780667187590}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780667188310}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780667188311}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": true}, "timestamp": 1780667189017}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 18}, "timestamp": 1780667254073}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780667254653}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780667255242}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780667255243}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": true}, "timestamp": 1780667255932}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": true, "partial": false}, "timestamp": 1780667256507}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780667866496}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780667868218}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780667868219}
-{"sessionId": "d84fb3", "hypothesisId": "H1", "location": "orchestrator.py:dedup", "message": "vhsys_api_error", "data": {"err": "Erro ao listar clientes VHSYS: 403.", "status": 403}, "timestamp": 1780667869018}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780667883373}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780667885133}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780667885133}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": false}, "timestamp": 1780667886007}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 3}, "timestamp": 1780667902983}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "orchestrator_error", "data": {"err": "CNPJ inválido.", "status": 400}, "timestamp": 1780667902984}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780667933198}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780667935043}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780667935044}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": true}, "timestamp": 1780667935849}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 18}, "timestamp": 1780668056928}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780668057544}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780668059368}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780668059369}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": false}, "timestamp": 1780668060137}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": true, "partial": false}, "timestamp": 1780668061553}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 18}, "timestamp": 1780668305894}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "orchestrator_error", "data": {"err": "Empresa não está com situação cadastral ATIVA na Receita Federal.", "status": 422}, "timestamp": 1780668307074}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 18}, "timestamp": 1780668315976}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780668316873}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780668318706}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780668318707}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": false}, "timestamp": 1780668320105}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": true, "partial": false}, "timestamp": 1780668323116}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780668595734}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780668597780}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780668597782}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": true}, "timestamp": 1780668598615}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780668615842}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780668617565}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780668617566}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": true}, "timestamp": 1780668618539}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 3}, "timestamp": 1780668622878}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "orchestrator_error", "data": {"err": "CNPJ inválido.", "status": 400}, "timestamp": 1780668622879}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780668636270}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780668638004}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780668638005}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": false}, "timestamp": 1780668639632}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"cnpj_len": 18}, "timestamp": 1780668685230}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_start", "data": {"cnpj_len": 14}, "timestamp": 1780668685831}
-{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator.py:dedup", "message": "tiflux_find_ok", "data": {"found": false}, "timestamp": 1780668687617}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_start", "data": {}, "timestamp": 1780668687618}
-{"sessionId": "d84fb3", "hypothesisId": "H3", "location": "orchestrator.py:dedup", "message": "vhsys_find_ok", "data": {"found": true}, "timestamp": 1780668688348}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": false, "partial": true}, "timestamp": 1780668691357}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780669493391}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 19}, "timestamp": 1780669648448}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": false}, "timestamp": 1780669653310}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 19}, "timestamp": 1780669710214}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": true}, "timestamp": 1780669715769}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 19}, "timestamp": 1780669853151}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": true}, "timestamp": 1780669857816}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780674319158}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780674555883}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780674562651}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 19}, "timestamp": 1780674621222}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 19}, "timestamp": 1780674646787}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 19}, "timestamp": 1780674699432}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 19}, "timestamp": 1780675197169}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780675271255}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780675271261}
-{"sessionId": "d84fb3", "hypothesisId": "H1", "location": "main.py:integrar", "message": "uncaught_exception", "data": {"type": "TypeError", "err": "'MagicMock' object can't be awaited"}, "timestamp": 1780675271264}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780675314679}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780675314690}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": true}, "timestamp": 1780675314691}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780675319924}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 19}, "timestamp": 1780675552434}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": true}, "timestamp": 1780675558711}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780676435833}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780680120958}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780680120978}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 1}, "timestamp": 1780680120992}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": true}, "timestamp": 1780680120993}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 19}, "timestamp": 1780681734780}
-{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": true}, "timestamp": 1780681739416}
+{"sessionId": "d84fb3", "hypothesisId": "H6", "location": "tiflux_client._prepare_client_for_inactivate", "message": "PUT preparação (sem mesas/grupos)", "data": {"client_id": 2279870, "desk_count": 27}, "timestamp": 1780683238145}
+{"sessionId": "d84fb3", "hypothesisId": "H1,H3,H5", "location": "tiflux_client.delete_client:before_put", "message": "PUT inativar (status=false)", "data": {"client_id": 2279870, "has_desk_ids": false, "has_technical_group_ids": false, "current_status": true, "prepared": true}, "timestamp": 1780683239639}
+{"sessionId": "d84fb3", "hypothesisId": "H1,H4,H5", "location": "tiflux_client.delete_client:after_put", "message": "Resposta PUT inativar", "data": {"client_id": 2279870, "status_code": 200, "body_snippet": "{\"id\":2279870,\"address_ids\":[],\"anotations\":null,\"authorization_flow\":false,\"billing_report_type\":\"detailed_with_appointment\",\"contact_ids\":[],\"desk_ids\":[],\"email_financial\":null,\"equipment_counter\":0,\"estadual_registration\":null,\"form_of_payment\":\"BOLETO\",\"group_counter\":1,\"logo\":null,\"max_agents\":0,\"municipal_registration\":null,\"name\":\"RTC ACADEMIA LTDA (INATIVO)\",\"quarterly_bill_client_id\":null,\"quarterly_billing\":false,\"sms_financial\":null,\"social\":\"RTC ACADEMIA LTDA\",\"social_revenue\":\"50149208000145\",\"status\":false,\"technical_group_ids\":[],\"user_counter\":0,\"user_ids\":[],\"work_folder\":nul"}, "timestamp": 1780683240319}
+{"sessionId": "d84fb3", "hypothesisId": "H6", "location": "tiflux_client.delete_client", "message": "Cliente já inativo", "data": {"client_id": 2279870}, "timestamp": 1780683243518}
+{"sessionId": "d84fb3", "hypothesisId": "H6", "location": "tiflux_client.delete_client", "message": "Cliente já inativo", "data": {"client_id": 2279870}, "timestamp": 1780683254685}
+{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator._tiflux_delete:entry", "message": "Início exclusão TiFlux", "data": {"tiflux_client_id": 2279870, "search_mode": "cnpj", "term_len": 14}, "timestamp": 1780683296279}
+{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "tiflux_client.resolve_client_id", "message": "ID confirmado via GET", "data": {"original_id": 2279870, "resolved_id": 2279870}, "timestamp": 1780683296848}
+{"sessionId": "d84fb3", "hypothesisId": "H6", "location": "tiflux_client.delete_client", "message": "Cliente já inativo", "data": {"client_id": 2279870}, "timestamp": 1780683297409}
+{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_start", "data": {"desk_count": 19}, "timestamp": 1780683473271}
+{"sessionId": "d84fb3", "hypothesisId": "H4", "location": "main.py:integrar", "message": "integrate_done", "data": {"success": true}, "timestamp": 1780683478218}
+{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "orchestrator._tiflux_delete:entry", "message": "Início exclusão TiFlux", "data": {"tiflux_client_id": 2279910, "search_mode": "cnpj", "term_len": 14}, "timestamp": 1780683497013}
+{"sessionId": "d84fb3", "hypothesisId": "H2", "location": "tiflux_client.resolve_client_id", "message": "ID confirmado via GET", "data": {"original_id": 2279910, "resolved_id": 2279910}, "timestamp": 1780683498019}
+{"sessionId": "d84fb3", "hypothesisId": "H6", "location": "tiflux_client._prepare_client_for_inactivate", "message": "PUT preparação (sem mesas/grupos)", "data": {"client_id": 2279910, "desk_count": 19}, "timestamp": 1780683498622}
+{"sessionId": "d84fb3", "hypothesisId": "H1,H3,H5", "location": "tiflux_client.delete_client:before_put", "message": "PUT inativar (status=false)", "data": {"client_id": 2279910, "has_desk_ids": false, "has_technical_group_ids": false, "current_status": true, "prepared": true}, "timestamp": 1780683499762}
+{"sessionId": "d84fb3", "hypothesisId": "H1,H4,H5", "location": "tiflux_client.delete_client:after_put", "message": "Resposta PUT inativar", "data": {"client_id": 2279910, "status_code": 200, "body_snippet": "{\"id\":2279910,\"address_ids\":[],\"anotations\":null,\"authorization_flow\":false,\"billing_report_type\":\"detailed_with_appointment\",\"contact_ids\":[],\"desk_ids\":[],\"email_financial\":null,\"equipment_counter\":0,\"estadual_registration\":null,\"form_of_payment\":\"BOLETO\",\"group_counter\":1,\"logo\":null,\"max_agents\":0,\"municipal_registration\":null,\"name\":\"HELVIS FRIOS & DELICATESSEN\",\"quarterly_bill_client_id\":null,\"quarterly_billing\":false,\"sms_financial\":null,\"social\":\"HELVIS INDUSTRIA E COMERCIO DE MASSAS E LATICINIOS LTDA\",\"social_revenue\":\"03402580000131\",\"status\":false,\"technical_group_ids\":[],\"user_coun"}, "timestamp": 1780683500360}

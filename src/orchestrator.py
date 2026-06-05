@@ -5,6 +5,7 @@ from typing import Any
 from src.cnpj.brasilapi_client import BrasilApiError, fetch_cnpj
 from src.cnpj.validator import format_cnpj, normalize_cnpj, validate_cnpj
 from src.config import Settings
+from src.debug_log import dbg
 from src.integrations.tiflux_client import (
     TifluxApiError,
     TifluxClient,
@@ -431,6 +432,18 @@ async def execute_delete(
             )
         try:
             client_id = int(tiflux_client_id)
+            # #region agent log
+            dbg(
+                "H2",
+                "orchestrator._tiflux_delete:entry",
+                "Início exclusão TiFlux",
+                {
+                    "tiflux_client_id": client_id,
+                    "search_mode": search_mode,
+                    "term_len": len(term),
+                },
+            )
+            # #endregion
             if search_mode == "cnpj":
                 client_id = await tiflux.resolve_client_id(client_id, cnpj_digits=term)
             await tiflux.delete_client(client_id)
@@ -440,6 +453,18 @@ async def execute_delete(
                 data={"id": client_id},
             )
         except TifluxApiError as exc:
+            # #region agent log
+            dbg(
+                "H1,H4",
+                "orchestrator._tiflux_delete:error",
+                "TifluxApiError na exclusão",
+                {
+                    "error": str(exc),
+                    "status_code": getattr(exc, "status_code", None),
+                    "body_snippet": (getattr(exc, "body", "") or "")[:600],
+                },
+            )
+            # #endregion
             return SystemResult(success=False, error=str(exc), message="Falha no TiFlux.")
 
     async def _vhsys_delete() -> SystemResult:

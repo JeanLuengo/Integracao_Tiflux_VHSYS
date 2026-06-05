@@ -1,9 +1,10 @@
+import json
+
 import httpx
-
-
 
 from src.cnpj.validator import format_cnpj
 from src.config import Settings
+from src.debug_log import dbg
 from src.mapping.canonical import CompanyPayload
 
 from src.mapping.tiflux_mapper import to_tiflux_payload
@@ -33,7 +34,68 @@ def is_duplicate_client_error(exc: TifluxApiError) -> bool:
     return "already" in text or "document number" in text or "42202" in text
 
 
+_TIFLUX_PUT_FIELDS = frozenset(
+    {
+        "name",
+        "desk_ids",
+        "technical_group_ids",
+        "social",
+        "social_revenue",
+        "status",
+        "max_agents",
+        "email_financial",
+        "sms_financial",
+        "municipal_registration",
+        "estadual_registration",
+        "anotations",
+        "visible_to_clients",
+        "work_folder",
+        "quarterly_billing",
+        "quarterly_bill_client_id",
+        "billing_report_type",
+        "authorization_flow",
+    }
+)
 
+
+def _build_inactivate_payload(detail: dict) -> dict:
+    body = {key: detail[key] for key in _TIFLUX_PUT_FIELDS if key in detail}
+    body["status"] = False
+    return body
+
+
+def _is_tiflux_50004(body_text: str) -> bool:
+    return "50004" in (body_text or "") or "auth_flow" in (body_text or "")
+
+
+def _inactivate_error_message(status_code: int, body_text: str) -> str:
+    try:
+        data = json.loads(body_text) if body_text else {}
+    except json.JSONDecodeError:
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+
+    code = data.get("error_code")
+    detail = data.get("detail")
+    if status_code == 500 and code == 50004:
+        return (
+            "Erro interno do TiFlux ao inativar (pré-tickets/autorização). "
+            "Inative o cliente manualmente no painel ou contate o suporte TiFlux."
+        )
+    if status_code == 422 and isinstance(detail, dict):
+        parts: list[str] = []
+        for key, messages in detail.items():
+            if isinstance(messages, list):
+                parts.extend(str(m) for m in messages)
+            elif messages:
+                parts.append(str(messages))
+        if parts:
+            return "Não foi possível inativar no TiFlux: " + " ".join(parts)
+    message = data.get("message")
+    if message:
+        return f"Não foi possível inativar no TiFlux: {message}"
+    return f"Erro ao inativar cliente TiFlux: {status_code}."
 
 
 class TifluxClient:
@@ -160,26 +222,111 @@ class TifluxClient:
 
 
 
-    async def delete_client(self, client_id: int) -> None:
-        """Inativa o cliente. A API v2 não expõe DELETE em /clients/{id} (só GET/PUT)."""
+    async def _put_client(self, client_id: int, body: dict) -> httpx.Response:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.put(
+            return await client.put(
                 f"{self._base}/clients/{client_id}",
                 headers=self._json_headers(),
-                json={"status": False},
+                json=body,
             )
 
-        if response.status_code in (200, 204):
-            return
+    def _raise_inactivate_error(self, response: httpx.Response) -> None:
         if response.status_code == 404:
             raise TifluxApiError("Cliente não encontrado no TiFlux.", 404, response.text)
-        if response.status_code == 422:
+        if response.status_code in (422, 500):
             raise TifluxApiError(
-                "Não foi possível inativar no TiFlux (tickets abertos, contratos ativos ou permissão).",
-                422,
+                _inactivate_error_message(response.status_code, response.text),
+                response.status_code,
                 response.text,
             )
         self._ensure_ok(response, "inativar cliente TiFlux")
+
+    async def _prepare_client_for_inactivate(self, client_id: int, detail: dict) -> None:
+        """TiFlux 50004: desvincular mesas/grupos antes de status=false."""
+        prep = _build_inactivate_payload(detail)
+        prep["desk_ids"] = []
+        prep["technical_group_ids"] = []
+        prep["status"] = True
+        prep["authorization_flow"] = False
+        # #region agent log
+        dbg(
+            "H6",
+            "tiflux_client._prepare_client_for_inactivate",
+            "PUT preparação (sem mesas/grupos)",
+            {"client_id": client_id, "desk_count": len(detail.get("desk_ids") or [])},
+        )
+        # #endregion
+        response = await self._put_client(client_id, prep)
+        if response.status_code not in (200, 204):
+            self._raise_inactivate_error(response)
+
+    async def delete_client(self, client_id: int) -> None:
+        """Inativa o cliente. A API v2 não expõe DELETE em /clients/{id} (só GET/PUT)."""
+        detail = await self.get_by_id(client_id)
+        if not detail:
+            raise TifluxApiError("Cliente não encontrado no TiFlux.", 404, "")
+
+        if detail.get("status") is False:
+            # #region agent log
+            dbg(
+                "H6",
+                "tiflux_client.delete_client",
+                "Cliente já inativo",
+                {"client_id": client_id},
+            )
+            # #endregion
+            return
+
+        has_links = bool(detail.get("desk_ids")) or bool(detail.get("technical_group_ids"))
+        if has_links:
+            await self._prepare_client_for_inactivate(client_id, detail)
+            detail = await self.get_by_id(client_id) or detail
+
+        put_body = _build_inactivate_payload(detail)
+        # #region agent log
+        dbg(
+            "H1,H3,H5",
+            "tiflux_client.delete_client:before_put",
+            "PUT inativar (status=false)",
+            {
+                "client_id": client_id,
+                "has_desk_ids": bool(put_body.get("desk_ids")),
+                "has_technical_group_ids": bool(put_body.get("technical_group_ids")),
+                "current_status": detail.get("status"),
+                "prepared": has_links,
+            },
+        )
+        # #endregion
+        response = await self._put_client(client_id, put_body)
+
+        # #region agent log
+        dbg(
+            "H1,H4,H5",
+            "tiflux_client.delete_client:after_put",
+            "Resposta PUT inativar",
+            {
+                "client_id": client_id,
+                "status_code": response.status_code,
+                "body_snippet": (response.text or "")[:600],
+            },
+        )
+        # #endregion
+
+        if response.status_code in (200, 204):
+            verified = await self.get_by_id(client_id)
+            if verified and verified.get("status") is False:
+                return
+            return
+
+        if response.status_code == 500 and _is_tiflux_50004(response.text) and not has_links:
+            await self._prepare_client_for_inactivate(client_id, detail)
+            detail = await self.get_by_id(client_id) or detail
+            put_body = _build_inactivate_payload(detail)
+            response = await self._put_client(client_id, put_body)
+            if response.status_code in (200, 204):
+                return
+
+        self._raise_inactivate_error(response)
 
     async def resolve_client_id(
         self,
@@ -188,12 +335,30 @@ class TifluxClient:
         cnpj_digits: str | None = None,
     ) -> int:
         """Confirma o ID via GET; se falhar, tenta reencontrar pelo CNPJ."""
+        original = client_id
         if await self.get_by_id(client_id):
+            # #region agent log
+            dbg(
+                "H2",
+                "tiflux_client.resolve_client_id",
+                "ID confirmado via GET",
+                {"original_id": original, "resolved_id": client_id},
+            )
+            # #endregion
             return client_id
         if cnpj_digits:
             refound = await self.find_by_cnpj(cnpj_digits)
             if refound and refound.get("id") is not None:
-                return int(refound["id"])
+                client_id = int(refound["id"])
+                # #region agent log
+                dbg(
+                    "H2",
+                    "tiflux_client.resolve_client_id",
+                    "ID reencontrado por CNPJ",
+                    {"original_id": original, "resolved_id": client_id},
+                )
+                # #endregion
+                return client_id
         raise TifluxApiError("Cliente não encontrado no TiFlux.", 404, "")
 
 
