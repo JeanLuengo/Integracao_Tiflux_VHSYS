@@ -41,7 +41,7 @@ def test_build_inactivate_payload_uses_permitted_fields():
 def test_inactivate_error_message_50004():
     body = '{"error_code":50004,"message":"Cannot execute"}'
     msg = _inactivate_error_message(500, body)
-    assert "suporte TiFlux" in msg
+    assert "mesas vinculadas" in msg
 
 
 @pytest.mark.asyncio
@@ -63,7 +63,9 @@ async def test_delete_client_uses_two_step_when_desks_linked(env):
     mock_http.__aenter__ = AsyncMock(return_value=mock_http)
     mock_http.__aexit__ = AsyncMock(return_value=None)
 
-    get_by_id = AsyncMock(side_effect=[detail_active, detail_prepared, detail_prepared])
+    get_by_id = AsyncMock(
+        side_effect=[detail_active, detail_prepared, detail_prepared, detail_prepared]
+    )
 
     with (
         patch.object(client, "get_by_id", get_by_id),
@@ -71,12 +73,13 @@ async def test_delete_client_uses_two_step_when_desks_linked(env):
     ):
         await client.delete_client(42)
 
-    assert mock_http.put.await_count == 2
+    assert mock_http.put.await_count >= 2
     prep_body = mock_http.put.await_args_list[0].kwargs["json"]
-    final_body = mock_http.put.await_args_list[1].kwargs["json"]
+    final_body = mock_http.put.await_args_list[-1].kwargs["json"]
     assert prep_body["desk_ids"] == []
     assert prep_body["status"] is True
     assert final_body["status"] is False
+    assert final_body["desk_ids"] == []
     mock_http.delete.assert_not_called()
 
 

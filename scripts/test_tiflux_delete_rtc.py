@@ -13,10 +13,12 @@ sys.path.insert(0, str(ROOT))
 from src.config import Settings, clear_settings_cache
 from src.integrations.tiflux_client import TifluxApiError, TifluxClient
 
-RTC_CNPJ = "50149208000145"
+DEFAULT_CNPJ = "50149208000145"
 
 
 async def main() -> int:
+    cnpj_arg = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_CNPJ
+    cnpj_digits = "".join(c for c in cnpj_arg if c.isdigit())
     clear_settings_cache()
     settings = Settings()
     if not settings.tiflux_api_token:
@@ -24,9 +26,9 @@ async def main() -> int:
         return 1
 
     client = TifluxClient(settings)
-    found = await client.find_by_cnpj(RTC_CNPJ)
+    found = await client.find_by_cnpj(cnpj_digits)
     if not found or not found.get("id"):
-        print(f"ERRO: Cliente CNPJ {RTC_CNPJ} não encontrado no TiFlux")
+        print(f"ERRO: Cliente CNPJ {cnpj_digits} não encontrado no TiFlux")
         return 1
 
     client_id = int(found["id"])

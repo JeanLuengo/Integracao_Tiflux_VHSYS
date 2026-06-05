@@ -78,10 +78,10 @@ def _inactivate_error_message(status_code: int, body_text: str) -> str:
 
     code = data.get("error_code")
     detail = data.get("detail")
-    if status_code == 500 and code == 50004:
+    if status_code == 500 and (code == 50004 or _is_tiflux_50004(body_text)):
         return (
-            "Erro interno do TiFlux ao inativar (pré-tickets/autorização). "
-            "Inative o cliente manualmente no painel ou contate o suporte TiFlux."
+            "TiFlux não aceitou inativar com mesas vinculadas. "
+            "O sistema tenta desvincular automaticamente; atualize o deploy e tente de novo."
         )
     if status_code == 422 and isinstance(detail, dict):
         parts: list[str] = []
@@ -241,8 +241,20 @@ class TifluxClient:
             )
         self._ensure_ok(response, "inativar cliente TiFlux")
 
+    def _minimal_prep_payload(self, detail: dict) -> dict:
+        return {
+            "name": detail.get("name") or detail.get("social") or "",
+            "social": detail.get("social") or "",
+            "social_revenue": detail.get("social_revenue") or "",
+            "desk_ids": [],
+            "technical_group_ids": [],
+            "status": True,
+            "authorization_flow": False,
+        }
+
     async def _prepare_client_for_inactivate(self, client_id: int, detail: dict) -> None:
-        """TiFlux 50004: desvincular mesas/grupos antes de status=false."""
+        """Desvincula mesas/grupos antes de status=false (evita bug 50004 do TiFlux)."""
+        desk_count = len(detail.get("desk_ids") or [])
         prep = _build_inactivate_payload(detail)
         prep["desk_ids"] = []
         prep["technical_group_ids"] = []
@@ -252,13 +264,34 @@ class TifluxClient:
         dbg(
             "H6",
             "tiflux_client._prepare_client_for_inactivate",
-            "PUT preparação (sem mesas/grupos)",
-            {"client_id": client_id, "desk_count": len(detail.get("desk_ids") or [])},
+            "PUT preparação (payload completo)",
+            {"client_id": client_id, "desk_count": desk_count},
         )
         # #endregion
         response = await self._put_client(client_id, prep)
+        if response.status_code in (200, 204):
+            return
+        # #region agent log
+        dbg(
+            "H6",
+            "tiflux_client._prepare_client_for_inactivate",
+            "Preparação completa falhou; tentando payload mínimo",
+            {
+                "client_id": client_id,
+                "status_code": response.status_code,
+                "body_snippet": (response.text or "")[:400],
+            },
+        )
+        # #endregion
+        response = await self._put_client(client_id, self._minimal_prep_payload(detail))
         if response.status_code not in (200, 204):
             self._raise_inactivate_error(response)
+
+    async def _put_inactivate(self, client_id: int, detail: dict) -> httpx.Response:
+        body = _build_inactivate_payload(detail)
+        body["desk_ids"] = []
+        body["technical_group_ids"] = []
+        return await self._put_client(client_id, body)
 
     async def delete_client(self, client_id: int) -> None:
         """Inativa o cliente. A API v2 não expõe DELETE em /clients/{id} (só GET/PUT)."""
@@ -277,12 +310,21 @@ class TifluxClient:
             # #endregion
             return
 
-        has_links = bool(detail.get("desk_ids")) or bool(detail.get("technical_group_ids"))
-        if has_links:
+        prepared = False
+        try:
             await self._prepare_client_for_inactivate(client_id, detail)
+            prepared = True
             detail = await self.get_by_id(client_id) or detail
+        except TifluxApiError as prep_exc:
+            # #region agent log
+            dbg(
+                "H6",
+                "tiflux_client.delete_client",
+                "Preparação falhou; tentará inativar mesmo assim",
+                {"client_id": client_id, "error": str(prep_exc)},
+            )
+            # #endregion
 
-        put_body = _build_inactivate_payload(detail)
         # #region agent log
         dbg(
             "H1,H3,H5",
@@ -290,14 +332,12 @@ class TifluxClient:
             "PUT inativar (status=false)",
             {
                 "client_id": client_id,
-                "has_desk_ids": bool(put_body.get("desk_ids")),
-                "has_technical_group_ids": bool(put_body.get("technical_group_ids")),
-                "current_status": detail.get("status"),
-                "prepared": has_links,
+                "prepared": prepared,
+                "desk_count": len(detail.get("desk_ids") or []),
             },
         )
         # #endregion
-        response = await self._put_client(client_id, put_body)
+        response = await self._put_inactivate(client_id, detail)
 
         # #region agent log
         dbg(
@@ -318,13 +358,28 @@ class TifluxClient:
                 return
             return
 
-        if response.status_code == 500 and _is_tiflux_50004(response.text) and not has_links:
-            await self._prepare_client_for_inactivate(client_id, detail)
+        if response.status_code >= 500 or _is_tiflux_50004(response.text):
+            if not prepared:
+                await self._prepare_client_for_inactivate(client_id, detail)
+                prepared = True
             detail = await self.get_by_id(client_id) or detail
-            put_body = _build_inactivate_payload(detail)
-            response = await self._put_client(client_id, put_body)
+            response = await self._put_inactivate(client_id, detail)
+            # #region agent log
+            dbg(
+                "H1,H4",
+                "tiflux_client.delete_client:after_retry",
+                "Retry após preparação",
+                {
+                    "client_id": client_id,
+                    "status_code": response.status_code,
+                    "body_snippet": (response.text or "")[:400],
+                },
+            )
+            # #endregion
             if response.status_code in (200, 204):
-                return
+                verified = await self.get_by_id(client_id)
+                if verified and verified.get("status") is False:
+                    return
 
         self._raise_inactivate_error(response)
 
