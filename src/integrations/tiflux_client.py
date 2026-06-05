@@ -1,3 +1,4 @@
+import asyncio
 import json
 
 import httpx
@@ -418,27 +419,61 @@ class TifluxClient:
 
 
 
-    async def get_by_id(self, client_id: int) -> dict | None:
-
+    async def get_by_id(self, client_id: int, *, show_entities: bool = False) -> dict | None:
+        params = {"show_entities": "true"} if show_entities else None
         async with httpx.AsyncClient(timeout=30.0) as client:
-
             response = await client.get(
-
                 f"{self._base}/clients/{client_id}",
-
                 headers=self._auth_headers(),
-
+                params=params,
             )
 
         if response.status_code in (403, 404):
-
             return None
 
         self._ensure_ok(response, "exibir cliente TiFlux")
-
         data = response.json()
-
         return data if isinstance(data, dict) else None
+
+    async def get_client_desks(self, client_id: int) -> list[dict]:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self._base}/clients/{client_id}/desks",
+                headers=self._auth_headers(),
+            )
+        self._ensure_ok(response, "listar mesas do cliente TiFlux")
+        return _extract_client_list(response.json())
+
+    async def get_client_technical_groups(self, client_id: int) -> list[dict]:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.get(
+                f"{self._base}/clients/{client_id}/technical-groups",
+                headers=self._auth_headers(),
+            )
+        self._ensure_ok(response, "listar grupos do cliente TiFlux")
+        return _extract_client_list(response.json())
+
+    async def get_client_profile(self, client_id: int) -> dict:
+        async def _entities() -> list:
+            raw = await self.get_by_id(client_id, show_entities=True)
+            if isinstance(raw, dict):
+                return raw.get("entities") or []
+            return []
+
+        client, entities, desks, groups = await asyncio.gather(
+            self.get_by_id(client_id, show_entities=False),
+            _entities(),
+            self.get_client_desks(client_id),
+            self.get_client_technical_groups(client_id),
+        )
+        if not client:
+            raise TifluxApiError("Cliente não encontrado no TiFlux.", 404, "")
+        return {
+            "client": client,
+            "entities": entities,
+            "desks": desks,
+            "technical_groups": groups,
+        }
 
 
 

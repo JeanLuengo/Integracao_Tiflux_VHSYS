@@ -11,8 +11,10 @@ from src.debug_log import dbg
 from src.orchestrator import (
     OrchestratorError,
     execute_delete,
+    fetch_consult_detail,
     integrate_company,
     preview_cnpj,
+    preview_consult_client,
     preview_delete_client,
 )
 from src.ui import INDEX_HTML
@@ -21,7 +23,7 @@ load_dotenv()
 
 app = FastAPI(
     title="Integração CNPJ → TiFlux + VHSYS",
-    version="1.2.0",
+    version="1.3.0",
 )
 
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
@@ -244,6 +246,83 @@ async def excluir_cliente(request: Request):
     else:
         status = 502
 
+    return JSONResponse(status_code=status, content=payload)
+
+
+@app.post("/consulta/preview")
+async def consulta_preview(request: Request):
+    settings = get_settings()
+    raw = ""
+
+    if "application/json" in request.headers.get("content-type", ""):
+        body = await request.json()
+        raw = str(body.get("query", "")).strip()
+    else:
+        form = await request.form()
+        raw = str(form.get("query", "")).strip()
+
+    if not raw:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Informe CNPJ ou nome para buscar."},
+        )
+
+    try:
+        result = await preview_consult_client(raw, settings)
+        return JSONResponse(content=result.to_dict())
+    except OrchestratorError as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"success": False, "error": str(exc), "query": raw},
+        )
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(exc), "query": raw},
+        )
+
+
+@app.post("/consulta/detalhe")
+async def consulta_detalhe(request: Request):
+    settings = get_settings()
+
+    if "application/json" not in request.headers.get("content-type", ""):
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Use JSON no corpo da requisição."},
+        )
+
+    body = await request.json()
+    raw_query = str(body.get("query", "")).strip()
+    tiflux_id = _optional_int(body.get("tiflux_client_id"))
+    vhsys_id = _optional_int(body.get("vhsys_client_id"))
+
+    if not raw_query:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Campo query é obrigatório."},
+        )
+
+    try:
+        result = await fetch_consult_detail(
+            raw_query,
+            settings,
+            tiflux_client_id=tiflux_id,
+            vhsys_client_id=vhsys_id,
+        )
+    except OrchestratorError as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"success": False, "error": str(exc)},
+        )
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(exc)},
+        )
+
+    payload = result.to_dict()
+    status = 200 if result.success else 502
     return JSONResponse(status_code=status, content=payload)
 
 

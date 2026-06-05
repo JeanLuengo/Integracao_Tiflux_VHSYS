@@ -274,6 +274,60 @@ INDEX_HTML = """<!DOCTYPE html>
 
     .skip-row { margin-top: 0.5rem; font-size: 0.88rem; }
 
+    .menu-icon.info { background: #e0f2fe; color: var(--avs-blue); }
+
+    .consult-report-grid {
+
+      display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem;
+
+    }
+
+    @media (max-width: 720px) { .consult-report-grid { grid-template-columns: 1fr; } }
+
+    .consult-col {
+
+      border: 1px solid var(--avs-border); border-radius: 8px;
+
+      padding: 1rem; background: #fafbfc; font-size: 0.85rem;
+
+    }
+
+    .consult-col h3 { font-size: 0.95rem; color: var(--avs-navy); margin-bottom: 0.75rem; }
+
+    .kv-block { margin-bottom: 1rem; }
+
+    .kv-block h4 { font-size: 0.82rem; color: var(--avs-blue); margin-bottom: 0.4rem; }
+
+    .report-section { margin-bottom: 1rem; }
+
+    .report-section h4 { font-size: 0.82rem; color: var(--avs-blue); margin-bottom: 0.4rem; }
+
+    .report-dl { display: grid; grid-template-columns: minmax(140px, 42%) 1fr; gap: 0.35rem 0.75rem; margin: 0; }
+
+    .report-dl dt { font-weight: 600; color: var(--avs-muted); font-size: 0.82rem; word-break: break-word; }
+
+    .report-dl dd { margin: 0; font-size: 0.85rem; word-break: break-word; }
+
+    .report-list { margin: 0; padding-left: 1.1rem; }
+
+    .report-list li { margin-bottom: 0.2rem; }
+
+    .subsection-label { font-size: 0.78rem; font-weight: 600; color: var(--avs-muted); margin: 0.75rem 0 0.35rem; text-transform: uppercase; letter-spacing: 0.03em; }
+
+    @media print {
+
+      .topbar, .steps, .actions, .no-print { display: none !important; }
+
+      body { background: #fff; }
+
+      .card { box-shadow: none; border: none; }
+
+      .consult-col { break-inside: avoid; page-break-inside: avoid; }
+
+      .consult-report-grid { grid-template-columns: 1fr; }
+
+    }
+
     .menu-item h3 { font-size: 1rem; color: var(--avs-navy); margin-bottom: 0.35rem; }
 
     .menu-item p { font-size: 0.85rem; color: var(--avs-muted); }
@@ -547,6 +601,16 @@ INDEX_HTML = """<!DOCTYPE html>
             <h3>Excluir Clientes</h3>
 
             <p>Busca por CNPJ ou nome e remove em TiFlux e VHSYS.</p>
+
+          </div>
+
+          <div class="menu-item" id="menuConsulta" role="button" tabindex="0">
+
+            <div class="menu-icon info">?</div>
+
+            <h3>Consulta status do cliente</h3>
+
+            <p>Relatório completo do cadastro em TiFlux e VHSYS (mesas, grupos, categorias).</p>
 
           </div>
 
@@ -890,6 +954,130 @@ INDEX_HTML = """<!DOCTYPE html>
 
     </section>
 
+
+
+    <!-- FLUXO CONSULTA STATUS -->
+
+    <section id="panelConsultFlow" class="panel">
+
+      <div class="steps" id="stepsConsultBar">
+
+        <span class="step active" data-consult-step="1">1. Busca</span>
+
+        <span class="step" data-consult-step="2">2. Seleção</span>
+
+        <span class="step" data-consult-step="3">3. Relatório</span>
+
+      </div>
+
+      <div id="consultSubPanel1" class="card panel active">
+
+        <h2 class="card-title">Consulta status do cliente</h2>
+
+        <p class="card-sub">Informe CNPJ ou nome para carregar o cadastro completo em TiFlux e VHSYS.</p>
+
+        <div id="alertConsultSearch" class="alert alert-error" hidden>
+
+          <span class="alert-icon">!</span>
+
+          <div class="alert-body"><strong>Não foi possível continuar</strong><span id="alertConsultSearchText"></span></div>
+
+        </div>
+
+        <form id="formConsultSearch">
+
+          <label for="consult_query">CNPJ ou nome do cliente</label>
+
+          <input id="consult_query" name="query" placeholder="00.000.000/0000-00 ou razão social" required autocomplete="off">
+
+          <div class="actions">
+
+            <button type="button" class="btn-secondary" id="btnCancelarConsulta">Cancelar</button>
+
+            <button type="submit" class="btn-primary" id="btnBuscarConsulta">Buscar</button>
+
+          </div>
+
+        </form>
+
+      </div>
+
+      <div id="consultSubPanel2" class="card panel">
+
+        <h2 class="card-title">Selecionar registros</h2>
+
+        <p class="card-sub">Escolha qual cliente consultar em cada sistema (ativos e lixeira no VHSYS).</p>
+
+        <div id="alertConsultReview" class="alert alert-error" hidden>
+
+          <span class="alert-icon">!</span>
+
+          <div class="alert-body"><strong>Verifique a seleção</strong><span id="alertConsultReviewText"></span></div>
+
+        </div>
+
+        <div class="section-title">TiFlux</div>
+
+        <div id="consultTifluxMatchesBox" class="match-list"></div>
+
+        <label class="checkbox-row skip-row" id="skipTifluxConsultRow" hidden>
+
+          <input type="checkbox" id="skip_tiflux_consult"> Não consultar TiFlux
+
+        </label>
+
+        <div class="section-title">VHSYS — Ativos</div>
+
+        <div id="consultVhsysActiveBox" class="match-list"></div>
+
+        <div class="section-title">VHSYS — Lixeira</div>
+
+        <div id="consultVhsysTrashBox" class="match-list"></div>
+
+        <label class="checkbox-row skip-row" id="skipVhsysConsultRow" hidden>
+
+          <input type="checkbox" id="skip_vhsys_consult"> Não consultar VHSYS
+
+        </label>
+
+        <div class="actions">
+
+          <button type="button" class="btn-secondary" id="btnVoltarConsulta">Voltar</button>
+
+          <button type="button" class="btn-primary" id="btnConfirmarConsulta" disabled>Carregar relatório</button>
+
+        </div>
+
+      </div>
+
+      <div id="consultSubPanel3" class="card panel">
+
+        <div id="consultReportPrintArea">
+
+          <h2 class="card-title">Relatório do cliente</h2>
+
+          <p class="card-sub" id="consultReportQuery"></p>
+
+          <div class="consult-report-grid" id="consultReportGrid"></div>
+
+        </div>
+
+        <div class="actions no-print" style="justify-content:center; flex-wrap:wrap; gap:0.5rem; margin-top:1rem;">
+
+          <button type="button" class="btn-secondary" id="btnInicioConsulta">Voltar ao início</button>
+
+          <button type="button" class="btn-secondary" id="btnImprimirConsulta">Imprimir / PDF</button>
+
+          <button type="button" class="btn-primary" id="btnBaixarJsonConsulta">Baixar JSON</button>
+
+          <button type="button" class="btn-primary" id="btnNovaConsulta">Nova consulta</button>
+
+        </div>
+
+      </div>
+
+    </section>
+
   </main>
 
 
@@ -900,6 +1088,10 @@ INDEX_HTML = """<!DOCTYPE html>
 
     let deletePreviewData = null;
 
+    let consultPreviewData = null;
+
+    let consultDetailData = null;
+
 
 
     const panelHome = document.getElementById('panelHome');
@@ -907,6 +1099,8 @@ INDEX_HTML = """<!DOCTYPE html>
     const panelFlow = document.getElementById('panelFlow');
 
     const panelDeleteFlow = document.getElementById('panelDeleteFlow');
+
+    const panelConsultFlow = document.getElementById('panelConsultFlow');
 
     const btnHomeTop = document.getElementById('btnHomeTop');
 
@@ -922,6 +1116,18 @@ INDEX_HTML = """<!DOCTYPE html>
 
     const deleteStepEls = document.querySelectorAll('#stepsDeleteBar .step');
 
+    const consultSubPanels = [
+
+      document.getElementById('consultSubPanel1'),
+
+      document.getElementById('consultSubPanel2'),
+
+      document.getElementById('consultSubPanel3'),
+
+    ];
+
+    const consultStepEls = document.querySelectorAll('#stepsConsultBar .step');
+
     const subPanels = [document.getElementById('subPanel1'), document.getElementById('subPanel2'), document.getElementById('subPanel3')];
 
     const stepEls = document.querySelectorAll('#stepsBar .step');
@@ -936,6 +1142,8 @@ INDEX_HTML = """<!DOCTYPE html>
 
       panelDeleteFlow.classList.remove('active');
 
+      panelConsultFlow.classList.remove('active');
+
       btnHomeTop.hidden = true;
 
     }
@@ -949,6 +1157,8 @@ INDEX_HTML = """<!DOCTYPE html>
       panelFlow.classList.add('active');
 
       panelDeleteFlow.classList.remove('active');
+
+      panelConsultFlow.classList.remove('active');
 
       btnHomeTop.hidden = false;
 
@@ -1516,6 +1726,8 @@ INDEX_HTML = """<!DOCTYPE html>
 
       panelDeleteFlow.classList.add('active');
 
+      panelConsultFlow.classList.remove('active');
+
       btnHomeTop.hidden = false;
 
       deleteSubPanels.forEach((p, i) => p.classList.toggle('active', i + 1 === step));
@@ -1570,17 +1782,17 @@ INDEX_HTML = """<!DOCTYPE html>
 
           text.innerHTML = '<strong>' + escapeHtml(m.name || m.social || 'Cliente') + '</strong>' +
 
-            '<small>Razão: ' + escapeHtml(m.social || '—') + '</small>' +
+            '<small>Razão social: ' + escapeHtml(m.social || '—') + '</small>' +
 
-            '<small>CNPJ: ' + escapeHtml(m.social_revenue || '—') + ' · ID ' + m.id + '</small>';
+            '<small>CNPJ: ' + escapeHtml(formatCnpjDisplay(m.social_revenue)) + '</small>';
 
         } else {
 
           text.innerHTML = '<strong>' + escapeHtml(m.fantasia_cliente || m.razao_cliente || 'Cliente') + '</strong>' +
 
-            '<small>Razão: ' + escapeHtml(m.razao_cliente || '—') + '</small>' +
+            '<small>Razão social: ' + escapeHtml(m.razao_cliente || '—') + '</small>' +
 
-            '<small>CNPJ: ' + escapeHtml(m.cnpj_cliente || '—') + ' · ID ' + m.id + '</small>';
+            '<small>CNPJ: ' + escapeHtml(formatCnpjDisplay(m.cnpj_cliente)) + (m.situacao_cliente ? ' · Situação: ' + escapeHtml(m.situacao_cliente) : '') + '</small>';
 
         }
 
@@ -1959,6 +2171,792 @@ INDEX_HTML = """<!DOCTYPE html>
       document.getElementById('alertDeleteReview').hidden = true;
 
       showDeleteFlow(1);
+
+    });
+
+
+
+    function showConsultFlow(step) {
+
+      panelHome.classList.remove('active');
+
+      panelFlow.classList.remove('active');
+
+      panelDeleteFlow.classList.remove('active');
+
+      panelConsultFlow.classList.add('active');
+
+      btnHomeTop.hidden = false;
+
+      consultSubPanels.forEach((p, i) => p.classList.toggle('active', i + 1 === step));
+
+      consultStepEls.forEach(el => {
+
+        const n = Number(el.dataset.consultStep);
+
+        el.classList.toggle('active', n === step);
+
+        el.classList.toggle('done', n < step);
+
+      });
+
+    }
+
+
+
+    function renderConsultMatches(container, matches, system, inputName) {
+
+      container.innerHTML = '';
+
+      if (!matches || !matches.length) {
+
+        container.innerHTML = '<p class="hint">Nenhum cliente encontrado.</p>';
+
+        return;
+
+      }
+
+      matches.forEach((m) => {
+
+        const label = document.createElement('label');
+
+        label.className = 'match-item';
+
+        const cb = document.createElement('input');
+
+        cb.type = 'radio';
+
+        cb.name = inputName;
+
+        cb.value = String(m.id);
+
+        if (matches.length === 1) cb.checked = true;
+
+        const text = document.createElement('span');
+
+        if (system === 'tiflux') {
+
+          text.innerHTML = '<strong>' + escapeHtml(m.name || m.social || 'Cliente') + '</strong>' +
+
+            '<small>Razão social: ' + escapeHtml(m.social || '—') + '</small>' +
+
+            '<small>CNPJ: ' + escapeHtml(formatCnpjDisplay(m.social_revenue)) + '</small>';
+
+        } else {
+
+          text.innerHTML = '<strong>' + escapeHtml(m.fantasia_cliente || m.razao_cliente || 'Cliente') + '</strong>' +
+
+            '<small>Razão social: ' + escapeHtml(m.razao_cliente || '—') + '</small>' +
+
+            '<small>CNPJ: ' + escapeHtml(formatCnpjDisplay(m.cnpj_cliente)) + (m.situacao_cliente ? ' · Situação: ' + escapeHtml(m.situacao_cliente) : '') + '</small>';
+
+        }
+
+        label.appendChild(cb);
+
+        label.appendChild(text);
+
+        container.appendChild(label);
+
+      });
+
+    }
+
+
+
+    function fillConsultReview(data) {
+
+      const tf = data.tiflux || {};
+
+      const vh = data.vhsys || {};
+
+      renderConsultMatches(document.getElementById('consultTifluxMatchesBox'), tf.matches_active || [], 'tiflux', 'tiflux_consult_pick');
+
+      renderConsultMatches(document.getElementById('consultVhsysActiveBox'), vh.matches_active || [], 'vhsys', 'vhsys_consult_pick');
+
+      renderConsultMatches(document.getElementById('consultVhsysTrashBox'), vh.matches_trash || [], 'vhsys', 'vhsys_consult_pick');
+
+      document.getElementById('skipTifluxConsultRow').hidden = !tf.found;
+
+      document.getElementById('skipVhsysConsultRow').hidden = !(vh.found);
+
+      document.getElementById('skip_tiflux_consult').checked = false;
+
+      document.getElementById('skip_vhsys_consult').checked = false;
+
+      updateConsultConfirmButton();
+
+    }
+
+
+
+    function updateConsultConfirmButton() {
+
+      const btn = document.getElementById('btnConfirmarConsulta');
+
+      const tf = consultPreviewData?.tiflux;
+
+      const vh = consultPreviewData?.vhsys;
+
+      const tfOk = !tf?.found || document.getElementById('skip_tiflux_consult').checked ||
+
+        !!document.querySelector('input[name="tiflux_consult_pick"]:checked');
+
+      const vhOk = !vh?.found || document.getElementById('skip_vhsys_consult').checked ||
+
+        !!document.querySelector('input[name="vhsys_consult_pick"]:checked');
+
+      const anySelected = (tf?.found && !document.getElementById('skip_tiflux_consult').checked) ||
+
+        (vh?.found && !document.getElementById('skip_vhsys_consult').checked);
+
+      btn.disabled = !(tfOk && vhOk && anySelected);
+
+    }
+
+
+
+    function formatCnpjDisplay(value) {
+
+      if (!value) return '—';
+
+      const digits = String(value).replace(/\D/g, '');
+
+      if (digits.length !== 14) return String(value);
+
+      return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+
+    }
+
+
+
+    function formatQueryDisplay(query) {
+
+      if (!query) return '';
+
+      const digits = String(query).replace(/\D/g, '');
+
+      if (digits.length === 14) return formatCnpjDisplay(digits);
+
+      return String(query);
+
+    }
+
+
+
+    function formatDateBr(value) {
+
+      if (!value) return '—';
+
+      const s = String(value);
+
+      const m = s.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}:\d{2}(?::\d{2})?))?/);
+
+      if (!m) return s;
+
+      return m[3] + '/' + m[2] + '/' + m[1] + (m[4] ? ' às ' + m[4] : '');
+
+    }
+
+
+
+    function humanizeKey(key) {
+
+      return String(key).replace(/_cliente$/, '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+    }
+
+
+
+    const TF_LABELS = {
+
+      id: 'Código TiFlux', name: 'Nome fantasia', social: 'Razão social', social_revenue: 'CNPJ',
+
+      status: 'Situação', form_of_payment: 'Forma de pagamento', billing_report_type: 'Tipo de faturamento',
+
+      equipment_counter: 'Equipamentos vinculados', group_counter: 'Grupos vinculados', max_agents: 'Máx. agentes',
+
+      email_financial: 'E-mail financeiro', estadual_registration: 'Inscrição estadual',
+
+      municipal_registration: 'Inscrição municipal', authorization_flow: 'Fluxo de autorização',
+
+    };
+
+
+
+    const VH_LABELS = {
+
+      id_cliente: 'Código VHSYS', id_registro: 'Registro interno', razao_cliente: 'Razão social',
+
+      fantasia_cliente: 'Nome fantasia', cnpj_cliente: 'CNPJ', tipo_pessoa: 'Tipo de pessoa',
+
+      tipo_cadastro: 'Tipo de cadastro', situacao_cliente: 'Situação', endereco_cliente: 'Endereço',
+
+      numero_cliente: 'Número', complemento_cliente: 'Complemento', bairro_cliente: 'Bairro',
+
+      cep_cliente: 'CEP', cidade_cliente: 'Cidade', uf_cliente: 'UF', referencia_cliente: 'Referência',
+
+      tel_destinatario_cliente: 'Telefone', doc_destinatario_cliente: 'Documento destinatário',
+
+      email_cliente: 'E-mail', limite_credito: 'Limite de crédito', data_cad_cliente: 'Data de cadastro',
+
+      consumidor_final: 'Consumidor final', modalidade_frete: 'Modalidade de frete',
+
+      ultrapassar_limite_credito: 'Ultrapassar limite de crédito', multiempresa: 'Multiempresa',
+
+      negativado: 'Negativado', negativado_serasa: 'Negativado Serasa',
+
+    };
+
+
+
+    const TF_SECTIONS = [
+
+      { title: 'Identificação', keys: ['id', 'name', 'social', 'social_revenue', 'status'] },
+
+      { title: 'Financeiro', keys: ['form_of_payment', 'billing_report_type', 'email_financial'] },
+
+      { title: 'Cadastro fiscal', keys: ['estadual_registration', 'municipal_registration', 'authorization_flow'] },
+
+      { title: 'Resumo de vínculos', keys: ['equipment_counter', 'group_counter', 'max_agents'] },
+
+    ];
+
+
+
+    const VH_SECTIONS = [
+
+      { title: 'Identificação', keys: ['id_cliente', 'razao_cliente', 'fantasia_cliente', 'cnpj_cliente', 'tipo_pessoa', 'tipo_cadastro', 'situacao_cliente'] },
+
+      { title: 'Endereço', keys: ['endereco_cliente', 'numero_cliente', 'complemento_cliente', 'bairro_cliente', 'cep_cliente', 'cidade_cliente', 'uf_cliente', 'referencia_cliente'] },
+
+      { title: 'Contato', keys: ['tel_destinatario_cliente', 'email_cliente', 'doc_destinatario_cliente'] },
+
+      { title: 'Financeiro', keys: ['limite_credito', 'ultrapassar_limite_credito', 'consumidor_final', 'modalidade_frete', 'multiempresa'] },
+
+      { title: 'Datas', keys: ['data_cad_cliente'] },
+
+      { title: 'Restrições', keys: ['negativado', 'negativado_serasa'] },
+
+    ];
+
+
+
+    const TF_HIDDEN_KEYS = new Set(['desk_ids', 'technical_group_ids', 'address_ids', 'contact_ids', 'logo', 'anotations']);
+
+    const VH_HIDDEN_KEYS = new Set(['lixeira', 'categoria', 'cidade_cliente_cod', 'id_registro']);
+
+
+
+    const TF_VALUE_MAPS = {
+
+      form_of_payment: { BOLETO: 'Boleto', CREDIT_CARD: 'Cartão de crédito', PIX: 'PIX' },
+
+      billing_report_type: {
+
+        detailed_with_appointment: 'Detalhado com apontamentos',
+
+        simplified: 'Simplificado',
+
+      },
+
+    };
+
+
+
+    function formatDisplayValue(key, val, system) {
+
+      if (val === null || val === undefined || val === '') return '—';
+
+      if (typeof val === 'boolean') {
+
+        if (key === 'status') return val ? 'Ativo' : 'Inativo';
+
+        return val ? 'Sim' : 'Não';
+
+      }
+
+      if (key === 'social_revenue' || key === 'cnpj_cliente') return formatCnpjDisplay(val);
+
+      if (key.startsWith('data_') || key.endsWith('_at')) return formatDateBr(val);
+
+      if (system === 'tiflux' && TF_VALUE_MAPS[key] && TF_VALUE_MAPS[key][val]) return TF_VALUE_MAPS[key][val];
+
+      if (key === 'consumidor_final') return val === '1' || val === 1 ? 'Sim' : 'Não';
+
+      if (key === 'ultrapassar_limite_credito') return val === 1 || val === true ? 'Permitido' : 'Não permitido';
+
+      if (key === 'tipo_pessoa') return val === 'PJ' ? 'Pessoa jurídica' : val === 'PF' ? 'Pessoa física' : String(val);
+
+      if (Array.isArray(val)) {
+
+        if (!val.length) return '—';
+
+        if (val.every((x) => typeof x !== 'object')) return val.join(', ');
+
+        return val.length + ' registro(s)';
+
+      }
+
+      if (typeof val === 'object') return JSON.stringify(val);
+
+      return String(val);
+
+    }
+
+
+
+    function buildReportSectionsHtml(obj, sections, labelMap, hiddenKeys, system) {
+
+      let html = '';
+
+      const used = new Set(hiddenKeys);
+
+      sections.forEach((sec) => {
+
+        const rows = sec.keys.filter((k) => Object.prototype.hasOwnProperty.call(obj, k));
+
+        if (!rows.length) return;
+
+        html += '<div class="report-section"><h4>' + escapeHtml(sec.title) + '</h4><dl class="report-dl">';
+
+        rows.forEach((k) => {
+
+          used.add(k);
+
+          const label = labelMap[k] || humanizeKey(k);
+
+          html += '<dt>' + escapeHtml(label) + '</dt><dd>' + escapeHtml(formatDisplayValue(k, obj[k], system)) + '</dd>';
+
+        });
+
+        html += '</dl></div>';
+
+      });
+
+      const rest = Object.keys(obj).filter((k) => !used.has(k) && obj[k] !== null && obj[k] !== '' &&
+
+        !(Array.isArray(obj[k]) && !obj[k].length) && (typeof obj[k] !== 'object' || Array.isArray(obj[k])));
+
+      if (rest.length) {
+
+        html += '<div class="report-section"><h4>Outros dados</h4><dl class="report-dl">';
+
+        rest.sort().forEach((k) => {
+
+          html += '<dt>' + escapeHtml(labelMap[k] || humanizeKey(k)) + '</dt><dd>' + escapeHtml(formatDisplayValue(k, obj[k], system)) + '</dd>';
+
+        });
+
+        html += '</dl></div>';
+
+      }
+
+      return html;
+
+    }
+
+
+
+    function renderListBlock(title, items, labelFn) {
+
+      if (!items || !items.length) return '';
+
+      let html = '<div class="kv-block"><h4>' + escapeHtml(title) + '</h4><ul class="report-list">';
+
+      items.forEach((item) => { html += '<li>' + escapeHtml(labelFn(item)) + '</li>'; });
+
+      html += '</ul></div>';
+
+      return html;
+
+    }
+
+
+
+    function renderTifluxEntities(entities) {
+
+      if (!entities || !entities.length) return '';
+
+      let html = '<div class="subsection-label">Campos personalizados</div>';
+
+      entities.forEach((ent) => {
+
+        const fields = (ent.entity_fields || []).filter((f) => f.value !== null && f.value !== undefined && f.value !== '');
+
+        html += '<div class="kv-block"><h4>' + escapeHtml(ent.name || 'Entidade') + '</h4>';
+
+        if (ent.description) html += '<p class="hint">' + escapeHtml(ent.description) + '</p>';
+
+        if (!fields.length) {
+
+          html += '<p class="hint">Nenhum campo preenchido.</p>';
+
+        } else {
+
+          html += '<dl class="report-dl">';
+
+          fields.forEach((f) => {
+
+            html += '<dt>' + escapeHtml(f.name || 'Campo') + '</dt><dd>' + escapeHtml(formatDisplayValue('entity', f.value, 'tiflux')) + '</dd>';
+
+          });
+
+          html += '</dl>';
+
+        }
+
+        html += '</div>';
+
+      });
+
+      return html;
+
+    }
+
+
+
+    function renderConsultReport(data) {
+
+      consultDetailData = data;
+
+      document.getElementById('consultReportQuery').textContent = 'Consulta: ' + formatQueryDisplay(data.query || '');
+
+      const grid = document.getElementById('consultReportGrid');
+
+      grid.innerHTML = '';
+
+      const tf = data.tiflux || {};
+
+      const vh = data.vhsys || {};
+
+      const tfCol = document.createElement('div');
+
+      tfCol.className = 'consult-col';
+
+      if (tf.skipped) {
+
+        tfCol.innerHTML = '<h3>TiFlux</h3><p class="hint">Não consultado.</p>';
+
+      } else if (!tf.success) {
+
+        tfCol.innerHTML = '<h3>TiFlux</h3><p class="err">' + escapeHtml(tf.error || 'Falha ao carregar') + '</p>';
+
+      } else {
+
+        const profile = tf.data || {};
+
+        const client = profile.client || {};
+
+        const entities = profile.entities || (client.entities || []);
+
+        let html = '<h3>TiFlux</h3>';
+
+        html += renderListBlock('Mesas de serviço', profile.desks, (d) =>
+
+          (d.display_name || d.name || 'Mesa') + (d.active === false ? ' (inativa)' : ''));
+
+        html += renderListBlock('Grupos de atendentes', profile.technical_groups, (g) => g.name || 'Grupo');
+
+        html += '<div class="subsection-label">Dados do cadastro</div>';
+
+        html += buildReportSectionsHtml(client, TF_SECTIONS, TF_LABELS, TF_HIDDEN_KEYS, 'tiflux');
+
+        html += renderTifluxEntities(entities);
+
+        tfCol.innerHTML = html;
+
+      }
+
+      grid.appendChild(tfCol);
+
+      const vhCol = document.createElement('div');
+
+      vhCol.className = 'consult-col';
+
+      if (vh.skipped) {
+
+        vhCol.innerHTML = '<h3>VHSYS</h3><p class="hint">Não consultado.</p>';
+
+      } else if (!vh.success) {
+
+        vhCol.innerHTML = '<h3>VHSYS</h3><p class="err">' + escapeHtml(vh.error || 'Falha ao carregar') + '</p>';
+
+      } else {
+
+        const client = vh.data || {};
+
+        let html = '<h3>VHSYS</h3>';
+
+        const cat = client.categoria || client.nome_categoria;
+
+        if ((Array.isArray(cat) ? cat.length : cat) || client.id_categoria) {
+
+          const catText = Array.isArray(cat) ? (cat.length ? cat.join(', ') : '—') : String(cat || '—');
+
+          html += '<div class="kv-block"><h4>Categoria</h4><p>' + escapeHtml(catText) + '</p></div>';
+
+        }
+
+        html += '<div class="subsection-label">Dados do cadastro</div>';
+
+        html += buildReportSectionsHtml(client, VH_SECTIONS, VH_LABELS, VH_HIDDEN_KEYS, 'vhsys');
+
+        vhCol.innerHTML = html;
+
+      }
+
+      grid.appendChild(vhCol);
+
+    }
+
+
+
+    document.getElementById('menuConsulta').addEventListener('click', () => {
+
+      consultPreviewData = null;
+
+      consultDetailData = null;
+
+      document.getElementById('formConsultSearch').reset();
+
+      document.getElementById('alertConsultSearch').hidden = true;
+
+      document.getElementById('alertConsultReview').hidden = true;
+
+      showConsultFlow(1);
+
+    });
+
+    document.getElementById('menuConsulta').addEventListener('keydown', (e) => {
+
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.getElementById('menuConsulta').click(); }
+
+    });
+
+    document.getElementById('btnCancelarConsulta').addEventListener('click', showHome);
+
+    document.getElementById('btnInicioConsulta').addEventListener('click', showHome);
+
+    document.getElementById('btnVoltarConsulta').addEventListener('click', () => showConsultFlow(1));
+
+    document.getElementById('btnNovaConsulta').addEventListener('click', () => {
+
+      consultPreviewData = null;
+
+      consultDetailData = null;
+
+      document.getElementById('formConsultSearch').reset();
+
+      showConsultFlow(1);
+
+    });
+
+    document.getElementById('btnImprimirConsulta').addEventListener('click', () => window.print());
+
+    document.getElementById('btnBaixarJsonConsulta').addEventListener('click', () => {
+
+      if (!consultDetailData) return;
+
+      const blob = new Blob([JSON.stringify(consultDetailData, null, 2)], { type: 'application/json' });
+
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+
+      const slug = (consultDetailData.query || 'consulta').replace(/\\W+/g, '_').slice(0, 40);
+
+      a.href = url;
+
+      a.download = 'consulta-' + slug + '-' + Date.now() + '.json';
+
+      a.click();
+
+      URL.revokeObjectURL(url);
+
+    });
+
+    ['skip_tiflux_consult', 'skip_vhsys_consult'].forEach((id) => {
+
+      document.getElementById(id).addEventListener('change', updateConsultConfirmButton);
+
+    });
+
+    document.getElementById('consultTifluxMatchesBox').addEventListener('change', updateConsultConfirmButton);
+
+    document.getElementById('consultVhsysActiveBox').addEventListener('change', updateConsultConfirmButton);
+
+    document.getElementById('consultVhsysTrashBox').addEventListener('change', updateConsultConfirmButton);
+
+    document.getElementById('formConsultSearch').addEventListener('submit', async (e) => {
+
+      e.preventDefault();
+
+      document.getElementById('alertConsultSearch').hidden = true;
+
+      const btn = document.getElementById('btnBuscarConsulta');
+
+      const query = document.getElementById('consult_query').value.trim();
+
+      btn.disabled = true;
+
+      btn.textContent = 'Buscando...';
+
+      try {
+
+        const res = await fetch('/consulta/preview', {
+
+          method: 'POST',
+
+          headers: { 'Content-Type': 'application/json' },
+
+          body: JSON.stringify({ query }),
+
+        });
+
+        let data;
+
+        try { data = await res.json(); } catch { data = { error: 'Resposta inválida.' }; }
+
+        if (!res.ok || data.success === false) {
+
+          showAlert('alertConsultSearch', 'alertConsultSearchText', data.error || 'Busca falhou.');
+
+          return;
+
+        }
+
+        if (!data.tiflux?.found && !data.vhsys?.found) {
+
+          showAlert('alertConsultSearch', 'alertConsultSearchText', ' Nenhum cliente encontrado em TiFlux ou VHSYS.');
+
+          return;
+
+        }
+
+        consultPreviewData = data;
+
+        consultPreviewData._rawQuery = query;
+
+        fillConsultReview(data);
+
+        showConsultFlow(2);
+
+      } finally {
+
+        btn.disabled = false;
+
+        btn.textContent = 'Buscar';
+
+      }
+
+    });
+
+    document.getElementById('btnConfirmarConsulta').addEventListener('click', async () => {
+
+      document.getElementById('alertConsultReview').hidden = true;
+
+      if (!consultPreviewData) return;
+
+      const btn = document.getElementById('btnConfirmarConsulta');
+
+      const tf = consultPreviewData.tiflux || {};
+
+      const vh = consultPreviewData.vhsys || {};
+
+      let tifluxId = null;
+
+      let vhsysId = null;
+
+      if (tf.found && !document.getElementById('skip_tiflux_consult').checked) {
+
+        const picked = document.querySelector('input[name="tiflux_consult_pick"]:checked');
+
+        if (!picked) {
+
+          showAlert('alertConsultReview', 'alertConsultReviewText', ' Selecione um cliente no TiFlux.');
+
+          return;
+
+        }
+
+        tifluxId = Number(picked.value);
+
+      }
+
+      if (vh.found && !document.getElementById('skip_vhsys_consult').checked) {
+
+        const picked = document.querySelector('input[name="vhsys_consult_pick"]:checked');
+
+        if (!picked) {
+
+          showAlert('alertConsultReview', 'alertConsultReviewText', ' Selecione um cliente no VHSYS.');
+
+          return;
+
+        }
+
+        vhsysId = Number(picked.value);
+
+      }
+
+      if (tifluxId === null && vhsysId === null) {
+
+        showAlert('alertConsultReview', 'alertConsultReviewText', ' Selecione ao menos um sistema.');
+
+        return;
+
+      }
+
+      btn.disabled = true;
+
+      btn.textContent = 'Carregando...';
+
+      try {
+
+        const res = await fetch('/consulta/detalhe', {
+
+          method: 'POST',
+
+          headers: { 'Content-Type': 'application/json' },
+
+          body: JSON.stringify({
+
+            query: consultPreviewData._rawQuery || consultPreviewData.query,
+
+            tiflux_client_id: tifluxId,
+
+            vhsys_client_id: vhsysId,
+
+          }),
+
+        });
+
+        let data;
+
+        try { data = await res.json(); } catch { data = { error: 'Resposta inválida.' }; }
+
+        if (!res.ok && !data.tiflux && !data.vhsys) {
+
+          showAlert('alertConsultReview', 'alertConsultReviewText', data.error || 'Falha ao carregar relatório.');
+
+          return;
+
+        }
+
+        renderConsultReport(data);
+
+        showConsultFlow(3);
+
+      } finally {
+
+        btn.disabled = false;
+
+        btn.textContent = 'Carregar relatório';
+
+        updateConsultConfirmButton();
+
+      }
 
     });
 

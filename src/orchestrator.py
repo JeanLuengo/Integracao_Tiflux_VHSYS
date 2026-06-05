@@ -12,7 +12,6 @@ from src.integrations.tiflux_client import (
     is_duplicate_client_error,
 )
 from src.integrations.vhsys_client import VhsysApiError, VhsysClient
-from src.debug_log import dbg
 from src.mapping.canonical import (
     CompanyPayload,
     company_from_dict,
@@ -75,6 +74,53 @@ class DeletePreviewResult:
             "search_mode": self.search_mode,
             "tiflux": self.tiflux.to_dict(),
             "vhsys": self.vhsys.to_dict(),
+        }
+
+
+@dataclass
+class ConsultSystemPreview:
+    found: bool
+    matches_active: list[dict[str, Any]] = field(default_factory=list)
+    matches_trash: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "found": self.found,
+            "matches_active": self.matches_active,
+            "matches_trash": self.matches_trash,
+        }
+
+
+@dataclass
+class ConsultPreviewResult:
+    query: str
+    search_mode: str
+    tiflux: ConsultSystemPreview
+    vhsys: ConsultSystemPreview
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": True,
+            "query": self.query,
+            "search_mode": self.search_mode,
+            "tiflux": self.tiflux.to_dict(),
+            "vhsys": self.vhsys.to_dict(),
+        }
+
+
+@dataclass
+class ConsultDetailResult:
+    query: str
+    tiflux: SystemResult = field(default_factory=lambda: SystemResult(success=False))
+    vhsys: SystemResult = field(default_factory=lambda: SystemResult(success=False))
+    success: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "query": self.query,
+            "tiflux": _system_dict(self.tiflux),
+            "vhsys": _system_dict(self.vhsys),
         }
 
 
@@ -353,7 +399,7 @@ def _vhsys_match_summary(item: dict) -> dict[str, Any]:
     }
 
 
-def _resolve_delete_search(query: str) -> tuple[str, str]:
+def _resolve_client_search(query: str) -> tuple[str, str]:
     raw = (query or "").strip()
     if not raw:
         raise OrchestratorError("Informe um CNPJ ou nome para buscar.", 400)
@@ -367,9 +413,138 @@ def _resolve_delete_search(query: str) -> tuple[str, str]:
     return "name", raw
 
 
+def _resolve_delete_search(query: str) -> tuple[str, str]:
+    return _resolve_client_search(query)
+
+
+async def preview_consult_client(query: str, settings: Settings) -> ConsultPreviewResult:
+    _ensure_credentials(settings)
+    search_mode, term = _resolve_client_search(query)
+
+    tiflux = TifluxClient(settings)
+    vhsys = VhsysClient(settings)
+
+    async def _search_tiflux() -> list[dict]:
+        if search_mode == "cnpj":
+            return await tiflux.find_matches_by_cnpj(term, limit=10)
+        return await tiflux.find_by_name(term, limit=10)
+
+    async def _search_vhsys() -> tuple[list[dict], list[dict]]:
+        if search_mode == "cnpj":
+            return await vhsys.find_matches_active_and_trash_by_cnpj(format_cnpj(term), limit=10)
+        return await vhsys.find_matches_active_and_trash_by_name(term, limit=10)
+
+    try:
+        tf_items, (vh_active, vh_trash) = await asyncio.gather(
+            _search_tiflux(),
+            _search_vhsys(),
+        )
+    except (TifluxApiError, VhsysApiError) as exc:
+        raise OrchestratorError(str(exc), getattr(exc, "status_code", None) or 502) from exc
+
+    tf_matches = [_tiflux_match_summary(x) for x in tf_items if x.get("id") is not None]
+    vh_active_matches = [_vhsys_match_summary(x) for x in vh_active if x.get("id_cliente") is not None]
+    vh_trash_matches = [_vhsys_match_summary(x) for x in vh_trash if x.get("id_cliente") is not None]
+
+    display_query = format_cnpj(term) if search_mode == "cnpj" else term
+
+    return ConsultPreviewResult(
+        query=display_query,
+        search_mode=search_mode,
+        tiflux=ConsultSystemPreview(
+            found=bool(tf_matches),
+            matches_active=tf_matches,
+        ),
+        vhsys=ConsultSystemPreview(
+            found=bool(vh_active_matches or vh_trash_matches),
+            matches_active=vh_active_matches,
+            matches_trash=vh_trash_matches,
+        ),
+    )
+
+
+async def fetch_consult_detail(
+    query: str,
+    settings: Settings,
+    *,
+    tiflux_client_id: int | None = None,
+    vhsys_client_id: int | None = None,
+) -> ConsultDetailResult:
+    _ensure_credentials(settings)
+    search_mode, term = _resolve_client_search(query)
+    display_query = format_cnpj(term) if search_mode == "cnpj" else term
+
+    if tiflux_client_id is None and vhsys_client_id is None:
+        raise OrchestratorError(
+            "Selecione ao menos um cliente para consultar (TiFlux ou VHSYS).",
+            400,
+        )
+
+    tiflux = TifluxClient(settings)
+    vhsys = VhsysClient(settings)
+    result = ConsultDetailResult(query=display_query)
+
+    async def _tiflux_detail() -> SystemResult:
+        if tiflux_client_id is None:
+            return SystemResult(
+                success=True,
+                skipped=True,
+                message="TiFlux não selecionado para consulta.",
+            )
+        try:
+            profile = await tiflux.get_client_profile(int(tiflux_client_id))
+            return SystemResult(
+                success=True,
+                message="Dados TiFlux carregados.",
+                data=profile,
+            )
+        except TifluxApiError as exc:
+            return SystemResult(success=False, error=str(exc), message="Falha no TiFlux.")
+
+    async def _vhsys_detail() -> SystemResult:
+        if vhsys_client_id is None:
+            return SystemResult(
+                success=True,
+                skipped=True,
+                message="VHSYS não selecionado para consulta.",
+            )
+        try:
+            data = await vhsys.get_by_id(vhsys_client_id)
+            if not data:
+                return SystemResult(
+                    success=False,
+                    error="Cliente não encontrado no VHSYS.",
+                    message="Falha no VHSYS.",
+                )
+            return SystemResult(
+                success=True,
+                message="Dados VHSYS carregados.",
+                data=data,
+            )
+        except VhsysApiError as exc:
+            return SystemResult(success=False, error=str(exc), message="Falha no VHSYS.")
+
+    tf_res, vh_res = await asyncio.gather(_tiflux_detail(), _vhsys_detail())
+    result.tiflux = tf_res
+    result.vhsys = vh_res
+
+    attempted = [
+        r
+        for r, selected in (
+            (tf_res, tiflux_client_id is not None),
+            (vh_res, vhsys_client_id is not None),
+        )
+        if selected
+    ]
+    ok_count = sum(1 for r in attempted if r.success)
+    result.success = bool(attempted) and ok_count == len(attempted)
+
+    return result
+
+
 async def preview_delete_client(query: str, settings: Settings) -> DeletePreviewResult:
     _ensure_credentials(settings)
-    search_mode, term = _resolve_delete_search(query)
+    search_mode, term = _resolve_client_search(query)
 
     tiflux = TifluxClient(settings)
     vhsys = VhsysClient(settings)

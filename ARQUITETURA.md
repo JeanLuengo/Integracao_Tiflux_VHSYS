@@ -94,6 +94,23 @@ flowchart LR
 - Exclusão usa **ID interno**, nunca CNPJ no path DELETE
 - TiFlux: **inativação** (`PUT` `status: false`); exclusão definitiva só no painel (2FA). VHSYS: lixeira (`lixeira=Sim` na listagem)
 
+## Fluxo consulta status do cliente
+
+```mermaid
+flowchart LR
+  UI[UI Consulta] --> P[POST /consulta/preview]
+  P --> TF[GET TiFlux clients]
+  P --> VH[GET VHSYS clientes ativos + lixeira]
+  UI --> D[POST /consulta/detalhe]
+  D --> TF2[GET TiFlux client + desks + groups]
+  D --> VH2[GET VHSYS /clientes/id]
+```
+
+- Preview: mesma resolução CNPJ/nome do fluxo de exclusão; VHSYS busca `lixeira=Nao` e `lixeira=Sim` em paralelo
+- Detalhe TiFlux: `GET /clients/{id}?show_entities=true`, `/clients/{id}/desks`, `/clients/{id}/technical-groups`
+- Detalhe VHSYS: `GET /clientes/{id_cliente}` (todos os campos do cadastro)
+- Exportação: impressão via CSS `@media print` e download JSON no browser (sem PDF server-side)
+
 ## Modelo canônico (`CompanyPayload`)
 
 | Campo | Origem BrasilAPI |

@@ -20,7 +20,7 @@ flowchart TD
   Resultado --> Home
 ```
 
-1. **Início** — menu com “Cadastrar Cliente” e “Excluir Clientes”.
+1. **Início** — menu com “Cadastrar Cliente”, “Excluir Clientes” e “Consulta status do cliente”.
 2. **CNPJ** — consulta BrasilAPI + carrega mesas/grupos TiFlux. Erros exibidos em alerta vermelho na tela.
 3. **Revisão** — dados editáveis + checkboxes de mesas (`desk_ids`) e grupos (`technical_group_ids`).
 4. **Resultado** — mensagem de sucesso ou erro (não JSON bruto).
@@ -42,6 +42,21 @@ flowchart TD
 
 **Chaves para exclusão:** as APIs não aceitam CNPJ no DELETE. O sistema busca pelo CNPJ/nome, obtém o **ID interno** (`id` no TiFlux, `id_cliente` no VHSYS) e só então chama a exclusão.
 
+## Fluxo da interface — Consulta status
+
+```mermaid
+flowchart TD
+  Home -->|Consulta status| BuscaC[Passo 1: CNPJ ou nome]
+  BuscaC -->|POST /consulta/preview| Sel[Passo 2: Seleção TiFlux / VHSYS]
+  Sel -->|POST /consulta/detalhe| Rel[Passo 3: Relatório completo]
+  Rel -->|Imprimir ou Baixar JSON| Export[Exportação]
+```
+
+1. **Busca** — CNPJ ou nome (mesmas regras da exclusão).
+2. **Seleção** — TiFlux (ativos) e VHSYS em duas listas: **Ativos** e **Lixeira**; pode consultar só um sistema.
+3. **Relatório** — mesas e grupos TiFlux em destaque; categoria VHSYS; demais campos da API em árvore de chaves.
+4. **Exportar** — **Imprimir / PDF** (diálogo do navegador) ou **Baixar JSON** com o payload completo.
+
 ## Endpoints
 
 | Método | Rota | Uso |
@@ -52,6 +67,8 @@ flowchart TD
 | `POST` | `/integrar` | JSON `{ company, desk_ids, technical_group_ids }` |
 | `POST` | `/excluir/preview` | JSON `{ "query": "CNPJ ou nome" }` |
 | `POST` | `/excluir` | JSON `{ "query", "tiflux_client_id", "vhsys_client_id" }` (IDs opcionais) |
+| `POST` | `/consulta/preview` | JSON `{ "query": "CNPJ ou nome" }` |
+| `POST` | `/consulta/detalhe` | JSON `{ "query", "tiflux_client_id?", "vhsys_client_id?" }` |
 
 ## Configuração (`.env`)
 

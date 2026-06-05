@@ -131,3 +131,116 @@ async def test_integrate_target_cnpj_both_systems():
     assert vhsys_found.get("id_cliente"), "Resposta VHSYS sem id_cliente."
 
 
+CONSULT_CNPJ = "57610713000194"
+
+CONSULT_CNPJ_FMT = "57.610.713/0001-94"
+
+
+
+
+
+@pytest.mark.asyncio
+
+async def test_consult_flow_e2e_cnpj_57610713000194():
+
+    """@tester — fluxo completo de consulta: preview, seleção e detalhe."""
+
+    if not _has_tokens():
+
+        pytest.skip("Tokens não configurados no .env")
+
+
+
+    from fastapi.testclient import TestClient
+
+    from src.main import app
+
+    from src.orchestrator import fetch_consult_detail, preview_consult_client
+
+
+
+    clear_settings_cache()
+
+    settings = Settings()
+
+
+
+    preview = await preview_consult_client(CONSULT_CNPJ_FMT, settings)
+
+    assert preview.search_mode == "cnpj"
+
+    assert preview.tiflux.found is True
+
+    assert preview.vhsys.found is True
+
+    assert len(preview.tiflux.matches_active) >= 1
+
+    assert len(preview.vhsys.matches_active) >= 1
+
+
+
+    tf_id = preview.tiflux.matches_active[0]["id"]
+
+    vh_id = preview.vhsys.matches_active[0]["id"]
+
+
+
+    detail = await fetch_consult_detail(
+
+        CONSULT_CNPJ_FMT,
+
+        settings,
+
+        tiflux_client_id=tf_id,
+
+        vhsys_client_id=vh_id,
+
+    )
+
+    assert detail.success is True
+
+    assert detail.tiflux.success is True
+
+    assert detail.vhsys.success is True
+
+    assert detail.tiflux.data["client"]["social_revenue"] == CONSULT_CNPJ
+
+    assert isinstance(detail.tiflux.data.get("entities"), list)
+
+    assert len(detail.tiflux.data["desks"]) >= 1
+
+    assert detail.vhsys.data["situacao_cliente"] == "Ativo"
+
+    assert CONSULT_CNPJ_FMT in detail.vhsys.data["cnpj_cliente"]
+
+
+
+    tc = TestClient(app)
+
+    r_preview = tc.post("/consulta/preview", json={"query": CONSULT_CNPJ_FMT})
+
+    assert r_preview.status_code == 200
+
+    assert r_preview.json()["success"] is True
+
+
+
+    r_detail = tc.post(
+
+        "/consulta/detalhe",
+
+        json={"query": CONSULT_CNPJ_FMT, "tiflux_client_id": tf_id, "vhsys_client_id": vh_id},
+
+    )
+
+    assert r_detail.status_code == 200
+
+    body = r_detail.json()
+
+    assert body["success"] is True
+
+    assert body["tiflux"]["data"]["client"]["name"]
+
+    assert body["vhsys"]["data"]["razao_cliente"]
+
+
