@@ -7,7 +7,6 @@ import {
 } from '@/components/ui/dialog'
 
 const SHORTCUTS = [
-  { keys: ['Ctrl', 'K'], desc: 'Abrir paleta de comandos' },
   { keys: ['Ctrl', 'Shift', 'L'], desc: 'Alternar tema' },
   { keys: ['Esc'], desc: 'Fechar modais' },
   { keys: ['?'], desc: 'Mostrar atalhos' },

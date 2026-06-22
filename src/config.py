@@ -52,6 +52,10 @@ class Settings(BaseSettings):
     azure_client_secret: str = ""
     azure_redirect_uri: str = "http://127.0.0.1:8000/auth/callback"
     allowed_user_emails: str = ""
+    tiflux_min_request_interval_ms: int = 400
+    tiflux_dormant_scan_max: int = 2000
+    tiflux_dormant_batch_pause_every: int = 20
+    tiflux_dormant_batch_pause_ms: int = 2000
 
     @field_validator(
         "tiflux_api_token",

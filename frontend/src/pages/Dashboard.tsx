@@ -13,7 +13,7 @@ const cards = [
     title: 'Cadastrar cliente',
     desc: 'CNPJ, revisão e integração TiFlux + VHSYS',
     icon: UserPlus,
-    accent: 'navy' as const,
+    accent: 'accent' as const,
   },
   {
     to: '/inativar',
@@ -27,7 +27,7 @@ const cards = [
     title: 'Consultar status',
     desc: 'Relatório completo do cadastro nos sistemas',
     icon: Search,
-    accent: 'navy' as const,
+    accent: 'accent' as const,
   },
   {
     to: '/empresas-inativas',
@@ -56,23 +56,7 @@ export function Dashboard() {
     isFetching,
   } = useQuery({
     queryKey: ['stats'],
-    queryFn: async () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7478/ingest/8cfaa81f-b56e-4ac1-8010-5fd779a0abab',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d84fb3'},body:JSON.stringify({sessionId:'d84fb3',location:'Dashboard.tsx:queryFn',message:'stats_fetch_start',data:{},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-      // #endregion
-      try {
-        const result = await api.stats()
-        // #region agent log
-        fetch('http://127.0.0.1:7478/ingest/8cfaa81f-b56e-4ac1-8010-5fd779a0abab',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d84fb3'},body:JSON.stringify({sessionId:'d84fb3',location:'Dashboard.tsx:queryFn',message:'stats_fetch_ok',data:{tiflux_total:result.tiflux_total,dormant_status:result.dormant_status,computed_at:result.computed_at},timestamp:Date.now(),hypothesisId:'C',runId:'post-fix'})}).catch(()=>{});
-        // #endregion
-        return result
-      } catch (e) {
-        // #region agent log
-        fetch('http://127.0.0.1:7478/ingest/8cfaa81f-b56e-4ac1-8010-5fd779a0abab',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d84fb3'},body:JSON.stringify({sessionId:'d84fb3',location:'Dashboard.tsx:queryFn',message:'stats_fetch_error',data:{error:e instanceof Error?e.message:String(e)},timestamp:Date.now(),hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
-        throw e
-      }
-    },
+    queryFn: () => api.stats(),
     staleTime: 5 * 60 * 1000,
     refetchInterval: (query) =>
       query.state.data?.dormant_status === 'pending' ? 15_000 : false,
@@ -81,17 +65,11 @@ export function Dashboard() {
   const stale = isStatsStale(stats?.computed_at, stats?.stale_after_seconds)
   const dormantPending = stats?.dormant_status === 'pending' || stats?.dormant_status === 'stale'
 
-  // #region agent log
-  if (typeof window !== 'undefined') {
-    fetch('http://127.0.0.1:7478/ingest/8cfaa81f-b56e-4ac1-8010-5fd779a0abab',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d84fb3'},body:JSON.stringify({sessionId:'d84fb3',location:'Dashboard.tsx:render',message:'stats_query_state',data:{statsPending,statsError,isFetching,hasData:!!stats,tiflux_total:stats?.tiflux_total,dormant_status:stats?.dormant_status},timestamp:Date.now(),hypothesisId:'E',runId:'post-fix'})}).catch(()=>{});
-  }
-  // #endregion
-
   return (
     <div className="mx-auto max-w-6xl space-y-8">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Bem-vindo, {firstName}</h1>
-        <p className="mt-1 text-muted-foreground">Escolha uma operação ou use Ctrl+K para navegar rapidamente.</p>
+        <p className="mt-1 text-muted-foreground">Escolha uma operação para começar.</p>
       </div>
 
       <div>
@@ -100,8 +78,8 @@ export function Dashboard() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Operações</h2>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          {cards.map((c, i) => (
-            <ActionCard key={c.to} {...c} delay={i * 0.05} />
+          {cards.map((c) => (
+            <ActionCard key={c.to} {...c} />
           ))}
         </div>
       </div>
@@ -123,7 +101,7 @@ export function Dashboard() {
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <StatTile label="Clientes TiFlux" value={stats?.tiflux_total} icon={Users} loading={statsPending} />
-          <StatTile label="Clientes VHSYS" value={stats?.vhsys_total} icon={Database} loading={statsPending} />
+          <StatTile label="Clientes VHSYS (ativos)" value={stats?.vhsys_total} icon={Database} loading={statsPending} />
           <StatTile label="Cadastrados (30d)" value={stats?.registered_30d} icon={UserPlus} loading={statsPending} />
           <StatTile label="Inativados (30d)" value={stats?.inactivated_30d} icon={UserX} loading={statsPending} />
           <StatTile

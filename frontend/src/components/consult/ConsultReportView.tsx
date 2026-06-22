@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { TifluxBindingEditor } from '@/components/consult/TifluxBindingEditor'
 import {
   buildReportHtml,
   downloadBlob,
@@ -37,35 +38,23 @@ function SectionBlock({ sections }: { sections: ReportSection[] }) {
   )
 }
 
-function ReportColumn({
-  title,
-  parsed,
-  side,
-}: {
-  title: string
-  parsed: ParsedConsultReport['tiflux'] | ParsedConsultReport['vhsys']
-  side: 'tiflux' | 'vhsys'
-}) {
-  const lists = 'lists' in parsed ? parsed.lists : []
-  const entities = side === 'tiflux' && 'entities' in parsed ? parsed.entities : []
-
+function VhsysReportColumn({ parsed }: { parsed: ParsedConsultReport['vhsys'] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">{title}</CardTitle>
+        <CardTitle className="text-lg">VHSYS</CardTitle>
       </CardHeader>
       <CardContent>
         {parsed.status === 'skipped' && <p className="text-sm text-muted-foreground">{parsed.message}</p>}
         {parsed.status === 'error' && <p className="text-sm text-destructive">{parsed.message}</p>}
-
         {parsed.status === 'ok' && (
           <>
-            {side === 'vhsys' && 'category' in parsed && parsed.category && (
+            {'category' in parsed && parsed.category && (
               <p className="mb-4 text-sm">
                 <span className="font-semibold text-muted-foreground">Categoria:</span> {parsed.category}
               </p>
             )}
-            {lists.map((list) => (
+            {parsed.lists.map((list) => (
               <section key={list.title} className="mb-4">
                 <h4 className="mb-2 text-sm font-semibold text-primary">{list.title}</h4>
                 <ul className="list-inside list-disc text-sm">
@@ -76,7 +65,75 @@ function ReportColumn({
               </section>
             ))}
             <SectionBlock sections={parsed.sections} />
-            {entities.map((ent) => (
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+function TifluxReportColumn({
+  parsed,
+  tifluxClientId,
+  tifluxData,
+  onTifluxUpdated,
+}: {
+  parsed: ParsedConsultReport['tiflux']
+  tifluxClientId?: number | null
+  tifluxData?: Record<string, unknown>
+  onTifluxUpdated?: (profile: Record<string, unknown>) => void
+}) {
+  const bindingLists = parsed.lists.filter(
+    (list) => list.title === 'Mesas de serviço' || list.title === 'Grupos de atendentes',
+  )
+  const otherLists = parsed.lists.filter(
+    (list) => list.title !== 'Mesas de serviço' && list.title !== 'Grupos de atendentes',
+  )
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">TiFlux</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {parsed.status === 'skipped' && <p className="text-sm text-muted-foreground">{parsed.message}</p>}
+        {parsed.status === 'error' && <p className="text-sm text-destructive">{parsed.message}</p>}
+        {parsed.status === 'ok' && (
+          <>
+            {tifluxClientId && tifluxData && onTifluxUpdated ? (
+              <TifluxBindingEditor
+                tifluxClientId={tifluxClientId}
+                profile={tifluxData as {
+                  client?: Record<string, unknown>
+                  desks?: Array<Record<string, unknown>>
+                  technical_groups?: Array<Record<string, unknown>>
+                }}
+                onUpdated={(profile) => onTifluxUpdated(profile as Record<string, unknown>)}
+              />
+            ) : (
+              bindingLists.map((list) => (
+                <section key={list.title} className="mb-4">
+                  <h4 className="mb-2 text-sm font-semibold text-primary">{list.title}</h4>
+                  <ul className="list-inside list-disc text-sm">
+                    {list.items.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                </section>
+              ))
+            )}
+            {otherLists.map((list) => (
+              <section key={list.title} className="mb-4">
+                <h4 className="mb-2 text-sm font-semibold text-primary">{list.title}</h4>
+                <ul className="list-inside list-disc text-sm">
+                  {list.items.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+            <SectionBlock sections={parsed.sections} />
+            {parsed.entities.map((ent) => (
               <section key={ent.name} className="mb-4">
                 <h4 className="mb-1 text-sm font-semibold text-primary">{ent.name}</h4>
                 {ent.description && <p className="mb-2 text-xs text-muted-foreground">{ent.description}</p>}
@@ -99,12 +156,28 @@ function ReportColumn({
 
 type Props = {
   raw: Record<string, unknown>
+  tifluxClientId?: number | null
+  onTifluxUpdated?: (updatedRaw: Record<string, unknown>) => void
   onNewSearch?: () => void
 }
 
-export function ConsultReportView({ raw, onNewSearch }: Props) {
+export function ConsultReportView({ raw, tifluxClientId, onTifluxUpdated, onNewSearch }: Props) {
   const parsed = parseConsultReport(raw)
   const safeName = parsed.query.replace(/[^\w.-]+/g, '_') || 'consulta'
+  const tf = raw.tiflux as Record<string, unknown> | undefined
+  const tifluxData = (tf?.data || undefined) as Record<string, unknown> | undefined
+
+  function handleTifluxProfileUpdate(profile: Record<string, unknown>) {
+    if (!onTifluxUpdated) return
+    onTifluxUpdated({
+      ...raw,
+      tiflux: {
+        ...(tf || {}),
+        success: true,
+        data: profile,
+      },
+    })
+  }
 
   function handlePrint() {
     window.print()
@@ -117,6 +190,15 @@ export function ConsultReportView({ raw, onNewSearch }: Props) {
   function handleSaveJson() {
     downloadBlob(JSON.stringify(raw, null, 2), `relatorio-avs-${safeName}.json`, 'application/json')
   }
+
+  const tifluxColumn = (
+    <TifluxReportColumn
+      parsed={parsed.tiflux}
+      tifluxClientId={tifluxClientId}
+      tifluxData={tifluxData}
+      onTifluxUpdated={onTifluxUpdated ? handleTifluxProfileUpdate : undefined}
+    />
+  )
 
   return (
     <div className="consult-report">
@@ -155,16 +237,14 @@ export function ConsultReportView({ raw, onNewSearch }: Props) {
           <TabsTrigger value="vhsys">VHSYS</TabsTrigger>
           <TabsTrigger value="compare">Comparar</TabsTrigger>
         </TabsList>
-        <TabsContent value="tiflux">
-          <ReportColumn title="TiFlux" parsed={parsed.tiflux} side="tiflux" />
-        </TabsContent>
+        <TabsContent value="tiflux">{tifluxColumn}</TabsContent>
         <TabsContent value="vhsys">
-          <ReportColumn title="VHSYS" parsed={parsed.vhsys} side="vhsys" />
+          <VhsysReportColumn parsed={parsed.vhsys} />
         </TabsContent>
         <TabsContent value="compare">
           <div className="grid gap-6 lg:grid-cols-2">
-            <ReportColumn title="TiFlux" parsed={parsed.tiflux} side="tiflux" />
-            <ReportColumn title="VHSYS" parsed={parsed.vhsys} side="vhsys" />
+            {tifluxColumn}
+            <VhsysReportColumn parsed={parsed.vhsys} />
           </div>
         </TabsContent>
       </Tabs>

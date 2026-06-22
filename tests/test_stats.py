@@ -37,7 +37,12 @@ async def test_compute_stats_aggregates_counts():
 
         async def fake_list(params):
             if params.get("lixeira") == "Nao":
-                return [{"id_cliente": 1}, {"id_cliente": 2}]
+                return [
+                    {"id_cliente": 1, "situacao_cliente": "Ativo"},
+                    {"id_cliente": 2, "situacao_cliente": "Inativo"},
+                    {"id_cliente": 3, "situacao_cliente": ""},
+                    {"id_cliente": 4},
+                ]
             return [{"id_cliente": 10, "data_modificacao": cutoff_recent}]
 
         mock_vh_cls.return_value._list_clientes = AsyncMock(side_effect=fake_list)
@@ -46,7 +51,7 @@ async def test_compute_stats_aggregates_counts():
 
     assert result["tiflux_total"] == 3
     assert result["registered_30d"] == 1
-    assert result["vhsys_total"] == 2
+    assert result["vhsys_total"] == 1
     assert result["inactivated_30d"] == 1
     assert result["tiflux_dormant"] is None
     assert result["dormant_status"] == "pending"

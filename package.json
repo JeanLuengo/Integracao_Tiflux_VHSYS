@@ -1,0 +1,7 @@
+{
+  "name": "integracao-tiflux-vhsys",
+  "private": true,
+  "scripts": {
+    "dev:local": "npm run dev:local --prefix frontend"
+  }
+}

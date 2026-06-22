@@ -10,6 +10,8 @@ import { Switch } from '@/components/ui/switch'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { WizardStepper } from '@/components/ui/wizard-stepper'
 import { ConsultReportView } from '@/components/consult/ConsultReportView'
+import { btnAccentClass } from '@/lib/ui-classes'
+import { cn } from '@/lib/cn'
 import { formatCnpj } from '@/lib/format'
 
 const RECENT_KEY = 'avs-consult-recent'
@@ -90,7 +92,7 @@ export function ConsultPage() {
     <div className="mx-auto max-w-5xl">
       <h1 className="mb-2 text-2xl font-semibold tracking-tight">Consultar status do cliente</h1>
       <p className="mb-6 text-sm text-muted-foreground">Relatório completo nos sistemas TiFlux e VHSYS.</p>
-      <WizardStepper steps={['Busca', 'Seleção', 'Relatório']} current={step} />
+      <WizardStepper steps={['Busca', 'Seleção', 'Relatório']} current={step} accent="blue" />
 
       {step === 1 && (
         <Card>
@@ -100,7 +102,9 @@ export function ConsultPage() {
                 <Label htmlFor="query">CNPJ ou nome</Label>
                 <CnpjInput id="query" mode="query" value={query} onValueChange={setQuery} placeholder="CNPJ ou nome" required />
               </div>
-              <Button type="submit" loading={loading}>Buscar</Button>
+              <Button type="submit" loading={loading} className={cn(btnAccentClass)}>
+                Buscar
+              </Button>
             </form>
             {recent.length > 0 && (
               <div className="border-t border-border pt-4">
@@ -182,6 +186,8 @@ export function ConsultPage() {
       {step === 3 && detail && (
         <ConsultReportView
           raw={detail}
+          tifluxClientId={skipTf ? null : tfId}
+          onTifluxUpdated={setDetail}
           onNewSearch={() => {
             setStep(1)
             setPreview(null)

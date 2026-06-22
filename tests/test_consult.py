@@ -5,7 +5,12 @@ from fastapi.testclient import TestClient
 
 from src.config import clear_settings_cache
 from src.main import app
-from src.orchestrator import fetch_consult_detail, preview_consult_client
+from src.orchestrator import (
+    fetch_consult_detail,
+    fetch_tiflux_catalog,
+    preview_consult_client,
+    update_consult_tiflux_bindings,
+)
 
 client = TestClient(app)
 
@@ -130,3 +135,69 @@ def test_index_serves_spa_shell(env):
     assert "AVS Management" in res.text
     assert 'id="root"' in res.text
     assert "/assets/index-" in res.text
+
+
+@pytest.mark.asyncio
+async def test_fetch_tiflux_catalog(env):
+    from src.config import Settings
+
+    with patch("src.orchestrator.TifluxClient") as tf_cls:
+        tf_cls.return_value.list_desks = AsyncMock(return_value=[{"id": 1, "name": "Mesa"}])
+        tf_cls.return_value.list_technical_groups = AsyncMock(return_value=[{"id": 2, "name": "Grupo"}])
+
+        catalog = await fetch_tiflux_catalog(Settings())
+
+    assert catalog["desks"][0]["id"] == 1
+    assert catalog["technical_groups"][0]["id"] == 2
+
+
+@pytest.mark.asyncio
+async def test_update_consult_tiflux_bindings(env):
+    from src.config import Settings
+
+    updated_profile = {
+        "client": {"id": 10, "desk_ids": [1], "technical_group_ids": [2]},
+        "desks": [{"id": 1, "name": "Mesa"}],
+        "technical_groups": [{"id": 2, "name": "Grupo"}],
+        "entities": [],
+    }
+
+    with patch("src.orchestrator.TifluxClient") as tf_cls:
+        tf_cls.return_value.update_client_bindings = AsyncMock(return_value=updated_profile)
+
+        result = await update_consult_tiflux_bindings(10, [1], [2], Settings())
+
+    assert result["client"]["id"] == 10
+    tf_cls.return_value.update_client_bindings.assert_awaited_once_with(
+        10,
+        desk_ids=[1],
+        technical_group_ids=[2],
+    )
+
+
+def test_consulta_tiflux_opcoes_route_ok(env):
+    with patch("src.main.fetch_tiflux_catalog", new_callable=AsyncMock) as mock_catalog:
+        mock_catalog.return_value = {"desks": [{"id": 1}], "technical_groups": [{"id": 2}]}
+        res = client.get("/consulta/tiflux/opcoes")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert body["desks"][0]["id"] == 1
+
+
+def test_consulta_tiflux_vinculos_route_ok(env):
+    with patch("src.main.update_consult_tiflux_bindings", new_callable=AsyncMock) as mock_update:
+        mock_update.return_value = {
+            "client": {"id": 10},
+            "desks": [],
+            "technical_groups": [],
+            "entities": [],
+        }
+        res = client.post(
+            "/consulta/tiflux/vinculos",
+            json={"tiflux_client_id": 10, "desk_ids": [1], "technical_group_ids": [2]},
+        )
+    assert res.status_code == 200
+    body = res.json()
+    assert body["success"] is True
+    assert body["tiflux"]["data"]["client"]["id"] == 10

@@ -13,6 +13,7 @@ import { RegisterPage } from './pages/RegisterPage'
 import { InactivatePage } from './pages/InactivatePage'
 import { ConsultPage } from './pages/ConsultPage'
 import { DormantPage } from './pages/DormantPage'
+import { ProfilePage } from './pages/ProfilePage'
 import { LoginPage } from './pages/LoginPage'
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage'
 import { ResetPasswordPage } from './pages/ResetPasswordPage'
@@ -38,6 +39,7 @@ export default function App() {
                       <Route path="inativar" element={<InactivatePage />} />
                       <Route path="consultar" element={<ConsultPage />} />
                       <Route path="empresas-inativas" element={<DormantPage />} />
+                      <Route path="perfil" element={<ProfilePage />} />
                     </Route>
                   </Route>
                 </Routes>

@@ -16,7 +16,6 @@ from src.auth.passwords import (
     verify_password,
 )
 from src.config import Settings, get_settings
-from src.debug_log import dbg
 
 REMEMBER_COOKIE = "avs_remember"
 GENERIC_LOGIN_ERROR = "E-mail ou senha inválidos."
@@ -53,6 +52,32 @@ class ForgotPasswordBody(BaseModel):
 class ResetPasswordBody(BaseModel):
     token: str = Field(min_length=10)
     password: str
+
+
+class UpdateProfileBody(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    backup_email: str = ""
+    phone: str = Field(default="", max_length=40)
+
+
+class ChangePasswordBody(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
+
+
+def _require_session_user(request: Request) -> dict[str, Any]:
+    settings = get_settings()
+    user = request.session.get("user")
+    if not user and settings.auth_enabled:
+        if not try_remember_login(request):
+            raise HTTPException(status_code=401, detail="Não autenticado.")
+        user = request.session.get("user")
+    if not user:
+        if settings.auth_enabled:
+            raise HTTPException(status_code=401, detail="Não autenticado.")
+        return {"email": "dev@local", "name": "Desenvolvimento", "dev_mode": True}
+    return user
 
 
 def _client_ip(request: Request) -> str:
@@ -118,22 +143,12 @@ def build_local_auth_router() -> APIRouter:
     @router.post("/login")
     async def login(request: Request, body: LoginBody):
         settings = get_settings()
-        # #region agent log
-        dbg("H1", "local.py:login:entry", "login attempt", {
-            "auth_enabled": settings.auth_enabled,
-            "auth_provider": settings.auth_provider,
-            "email_domain": body.email.split("@")[-1] if "@" in body.email else "?",
-        })
-        # #endregion
         if not settings.auth_enabled:
             request.session["user"] = {
                 "email": "dev@local",
                 "name": "Desenvolvimento",
                 "dev_mode": True,
             }
-            # #region agent log
-            dbg("H1", "local.py:login:dev_bypass", "auth disabled — login bypassed", {})
-            # #endregion
             return {"ok": True, "redirect": "/"}
 
         db = get_auth_db(settings)
@@ -143,9 +158,6 @@ def build_local_auth_router() -> APIRouter:
         allowed = set(settings.allowed_user_email_list)
         if allowed and email not in allowed:
             db.record_login_attempt(email, ip)
-            # #region agent log
-            dbg("H5", "local.py:login:denied", "email not in allowlist", {"email": email})
-            # #endregion
             raise HTTPException(status_code=401, detail=GENERIC_LOGIN_ERROR)
 
         attempts = db.count_recent_login_attempts(
@@ -161,13 +173,6 @@ def build_local_auth_router() -> APIRouter:
 
         user = db.get_user_by_email(email)
         password_ok = bool(user and verify_password(user.password_hash, body.password))
-        # #region agent log
-        dbg("H2", "local.py:login:verify", "credential check", {
-            "user_found": bool(user),
-            "user_active": bool(user and user.is_active),
-            "password_ok": password_ok,
-        })
-        # #endregion
         if not user or not user.is_active or not password_ok:
             db.record_login_attempt(email, ip)
             raise HTTPException(status_code=401, detail=GENERIC_LOGIN_ERROR)
@@ -205,23 +210,78 @@ def build_local_auth_router() -> APIRouter:
         user = request.session.get("user")
         if not user and settings.auth_enabled:
             if not try_remember_login(request):
-                # #region agent log
-                dbg("H3", "local.py:me:unauth", "no session", {"auth_enabled": True})
-                # #endregion
                 raise HTTPException(status_code=401, detail="Não autenticado.")
             user = request.session.get("user")
         if not user:
             if settings.auth_enabled:
                 raise HTTPException(status_code=401, detail="Não autenticado.")
             user = {"email": "dev@local", "name": "Desenvolvimento", "dev_mode": True}
-        # #region agent log
-        dbg("H3", "local.py:me:ok", "session user", {
-            "auth_enabled": settings.auth_enabled,
-            "has_dev_mode": bool(user.get("dev_mode")),
-            "email_domain": (user.get("email") or "").split("@")[-1],
-        })
-        # #endregion
         return {"authenticated": True, "user": user}
+
+    @router.get("/profile")
+    async def get_profile(request: Request):
+        session_user = _require_session_user(request)
+        if session_user.get("dev_mode"):
+            return {
+                "email": session_user["email"],
+                "name": session_user["name"],
+                "backup_email": "",
+                "phone": "",
+            }
+        user_id = session_user.get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Não autenticado.")
+        db_user = get_auth_db().get_user_by_id(int(user_id))
+        if not db_user:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+        return db_user.to_profile_dict()
+
+    @router.patch("/profile")
+    async def patch_profile(request: Request, body: UpdateProfileBody):
+        session_user = _require_session_user(request)
+        if session_user.get("dev_mode"):
+            raise HTTPException(status_code=400, detail="Perfil indisponível em modo desenvolvimento.")
+        if body.backup_email.strip():
+            try:
+                ForgotPasswordBody(email=body.backup_email.strip())
+            except Exception:
+                raise HTTPException(status_code=400, detail="E-mail de backup inválido.")
+        user_id = session_user.get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Não autenticado.")
+        db = get_auth_db()
+        updated = db.update_profile(
+            int(user_id),
+            name=body.name,
+            backup_email=body.backup_email.strip(),
+            phone=body.phone.strip(),
+        )
+        if not updated:
+            raise HTTPException(status_code=404, detail="Usuário não encontrado.")
+        session_user["name"] = updated.name
+        request.session["user"] = session_user
+        return updated.to_profile_dict()
+
+    @router.post("/change-password")
+    async def change_password(request: Request, body: ChangePasswordBody):
+        session_user = _require_session_user(request)
+        if session_user.get("dev_mode"):
+            raise HTTPException(status_code=400, detail="Alteração de senha indisponível em modo desenvolvimento.")
+        if body.new_password != body.confirm_password:
+            raise HTTPException(status_code=400, detail="As senhas não coincidem.")
+        policy_errors = validate_password_policy(body.new_password)
+        if policy_errors:
+            raise HTTPException(status_code=400, detail=policy_errors[0])
+        user_id = session_user.get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Não autenticado.")
+        db = get_auth_db()
+        user = db.get_user_by_id(int(user_id))
+        if not user or not verify_password(user.password_hash, body.current_password):
+            raise HTTPException(status_code=400, detail="Senha atual incorreta.")
+        db.update_password(user.id, hash_password(body.new_password))
+        db.revoke_remember_tokens(user.id)
+        return {"ok": True, "message": "Senha alterada com sucesso."}
 
     @router.post("/forgot-password")
     async def forgot_password(request: Request, body: ForgotPasswordBody):

@@ -6,9 +6,19 @@ type Props = {
   steps: string[]
   current: number
   className?: string
+  accent?: 'blue' | 'default'
 }
 
-export function WizardStepper({ steps, current, className }: Props) {
+export function WizardStepper({ steps, current, className, accent = 'default' }: Props) {
+  const isBlue = accent === 'blue'
+  const doneCircle = isBlue
+    ? 'border-aurora-accent bg-aurora-accent text-white'
+    : 'border-primary bg-primary text-primary-foreground'
+  const activeCircle = isBlue
+    ? 'border-aurora-accent bg-background text-aurora-accent'
+    : 'border-primary bg-background text-primary'
+  const barColor = isBlue ? 'bg-aurora-accent' : 'bg-primary'
+
   return (
     <nav aria-label="Progresso" className={cn('mb-8', className)}>
       <ol className="flex items-center gap-2">
@@ -22,8 +32,8 @@ export function WizardStepper({ steps, current, className }: Props) {
                 <div
                   className={cn(
                     'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 text-sm font-semibold transition-colors',
-                    done && 'border-primary bg-primary text-primary-foreground',
-                    active && 'border-primary bg-background text-primary',
+                    done && doneCircle,
+                    active && activeCircle,
                     !done && !active && 'border-border text-muted-foreground',
                   )}
                 >
@@ -42,7 +52,7 @@ export function WizardStepper({ steps, current, className }: Props) {
                 <div className="relative hidden h-0.5 flex-1 overflow-hidden rounded-full bg-border sm:block">
                   {done && (
                     <motion.div
-                      className="absolute inset-y-0 left-0 bg-primary"
+                      className={cn('absolute inset-y-0 left-0', barColor)}
                       initial={{ width: 0 }}
                       animate={{ width: '100%' }}
                       transition={{ duration: 0.3 }}

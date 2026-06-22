@@ -3,16 +3,21 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/cn'
 
 const badgeVariants = cva(
-  'inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+  'inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-aurora-accent focus:ring-offset-2',
   {
     variants: {
       variant: {
-        default: 'border-transparent bg-primary text-primary-foreground shadow hover:bg-primary/80',
-        secondary: 'border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80',
-        destructive: 'border-transparent bg-destructive text-destructive-foreground shadow hover:bg-destructive/80',
-        outline: 'text-foreground',
-        success: 'border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300',
-        warning: 'border-transparent bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
+        default: 'border-transparent bg-aurora-brand-red text-white shadow',
+        secondary: 'border-transparent bg-aurora-surface-2 text-aurora-fg',
+        destructive: 'border-transparent bg-aurora-danger text-white',
+        outline: 'border-aurora-border text-aurora-fg',
+        success: 'border-transparent bg-aurora-success/15 text-aurora-success',
+        warning: 'border-transparent bg-aurora-warning/20 text-aurora-warning',
+        info: 'border-transparent bg-aurora-info/15 text-aurora-info',
+        low: 'border-transparent bg-aurora-muted/15 text-aurora-muted',
+        medium: 'border-transparent bg-aurora-info/15 text-aurora-info',
+        high: 'border-transparent bg-aurora-warning/20 text-aurora-warning',
+        urgent: 'border-transparent bg-aurora-danger text-white',
       },
     },
     defaultVariants: { variant: 'default' },

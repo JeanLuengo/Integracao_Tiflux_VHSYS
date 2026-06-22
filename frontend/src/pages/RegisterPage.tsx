@@ -13,6 +13,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WizardStepper } from '@/components/ui/wizard-stepper'
+import { btnAccentClass } from '@/lib/ui-classes'
+import { cn } from '@/lib/cn'
 import { formatCnpj } from '@/lib/format'
 
 type IntegrationTarget = 'tiflux' | 'vhsys'
@@ -47,9 +49,6 @@ export function RegisterPage() {
     setLoading(true)
     try {
       const data = await api.previewCnpj(cnpj)
-      // #region agent log
-      fetch('http://127.0.0.1:7478/ingest/8cfaa81f-b56e-4ac1-8010-5fd779a0abab',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d84fb3'},body:JSON.stringify({sessionId:'d84fb3',runId:'dup-fix-1',hypothesisId:'H2',location:'RegisterPage.tsx:handlePreview',message:'preview_duplicates',data:{dup_tiflux:Boolean((data.duplicates as Record<string, unknown> | undefined)?.tiflux),dup_vhsys:Boolean((data.duplicates as Record<string, unknown> | undefined)?.vhsys)},timestamp:Date.now()})}).catch(()=>{})
-      // #endregion
       setPreview(data)
       const d = data.tiflux_options as Record<string, unknown>
       const def = d?.defaults as Record<string, number[]> | undefined
@@ -68,9 +67,6 @@ export function RegisterPage() {
     setLoading(true)
     try {
       const resolvedTargets = targets ?? (bothDup ? undefined : onlyTf ? ['vhsys'] : onlyVh ? ['tiflux'] : undefined)
-      // #region agent log
-      fetch('http://127.0.0.1:7478/ingest/8cfaa81f-b56e-4ac1-8010-5fd779a0abab',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d84fb3'},body:JSON.stringify({sessionId:'d84fb3',runId:'dup-fix-1',hypothesisId:'H3',location:'RegisterPage.tsx:handleIntegrate',message:'integrate_submit',data:{targets:resolvedTargets,dup_tiflux:dupTf,dup_vhsys:dupVh},timestamp:Date.now()})}).catch(()=>{})
-      // #endregion
       const data = await api.integrar({
         company,
         desk_ids: deskIds,
@@ -85,9 +81,6 @@ export function RegisterPage() {
       }
 
       setResult(data)
-      // #region agent log
-      fetch('http://127.0.0.1:7478/ingest/8cfaa81f-b56e-4ac1-8010-5fd779a0abab',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'d84fb3'},body:JSON.stringify({sessionId:'d84fb3',runId:'dup-fix-1',hypothesisId:'H4',location:'RegisterPage.tsx:handleIntegrate',message:'integrate_response',data:{success:Boolean(data.success),partial:Boolean(data.partial),all_duplicates:Boolean(data.all_duplicates)},timestamp:Date.now()})}).catch(()=>{})
-      // #endregion
       setStep(3)
       if (data.success && data.partial) {
         toast.success('Cliente cadastrado no sistema pendente.')
@@ -117,7 +110,7 @@ export function RegisterPage() {
     <div className="mx-auto max-w-4xl">
       <h1 className="mb-2 text-2xl font-semibold tracking-tight">Cadastrar cliente</h1>
       <p className="mb-6 text-sm text-muted-foreground">Consulte o CNPJ e integre em TiFlux + VHSYS.</p>
-      <WizardStepper steps={['CNPJ', 'Revisão', 'Resultado']} current={step} />
+      <WizardStepper steps={['CNPJ', 'Revisão', 'Resultado']} current={step} accent="blue" />
 
       {step === 1 && (
         <Card>
@@ -133,7 +126,9 @@ export function RegisterPage() {
                   required
                 />
               </div>
-              <Button type="submit" loading={loading}>Consultar CNPJ</Button>
+              <Button type="submit" loading={loading} className={cn(btnAccentClass)}>
+                Consultar CNPJ
+              </Button>
             </form>
           </CardContent>
         </Card>

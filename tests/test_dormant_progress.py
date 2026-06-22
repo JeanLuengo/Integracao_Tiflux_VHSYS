@@ -16,19 +16,19 @@ ENV = {
 async def test_scan_dormant_emits_progress(monkeypatch):
     events: list[dict] = []
 
-    async def fake_iter(*, max_clients=1500):
+    async def fake_iter(*, max_clients=1500, http=None):
         yield {"id": 1, "name": "A", "social": "Empresa A", "social_revenue": "123"}
         yield {"id": 2, "name": "B", "social": "Empresa B", "social_revenue": "456"}
 
     class FakeTiflux:
-        async def iter_active_clients(self, *, max_clients=1500):
-            async for item in fake_iter(max_clients=max_clients):
+        async def iter_active_clients(self, *, max_clients=1500, http=None):
+            async for item in fake_iter(max_clients=max_clients, http=http):
                 yield item
 
-        async def get_last_ticket_datetime(self, client_id: int):
+        async def get_last_ticket_datetime(self, client_id: int, *, http=None):
             return None
 
-        async def get_last_billing_datetime(self, client_id: int):
+        async def get_last_billing_datetime(self, client_id: int, *, http=None):
             return None
 
     monkeypatch.setattr("src.orchestrator.TifluxClient", lambda settings: FakeTiflux())

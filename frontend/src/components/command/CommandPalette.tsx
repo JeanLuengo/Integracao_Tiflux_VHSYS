@@ -8,7 +8,6 @@ import {
   LogOut,
   Moon,
   Sun,
-  Monitor,
 } from 'lucide-react'
 import {
   CommandDialog,
@@ -77,10 +76,6 @@ export function CommandPalette() {
             <Moon className="mr-2 h-4 w-4" />
             Tema escuro
           </CommandItem>
-          <CommandItem onSelect={() => { setMode('system'); setOpen(false) }}>
-            <Monitor className="mr-2 h-4 w-4" />
-            Tema do sistema
-          </CommandItem>
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Conta">
@@ -91,7 +86,7 @@ export function CommandPalette() {
         </CommandGroup>
       </CommandList>
       <div className="border-t border-border px-3 py-2 text-xs text-muted-foreground">
-        <CommandShortcut>Esc</CommandShortcut> fechar · <CommandShortcut>Ctrl+K</CommandShortcut> abrir
+        <CommandShortcut>Esc</CommandShortcut> fechar
       </div>
     </CommandDialog>
   )

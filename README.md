@@ -44,11 +44,23 @@ python -m src.auth.cli reset-password email@avs.com.br
 
 ## Executar
 
+### Desenvolvimento local (API + frontend com hot reload)
+
+Na raiz do projeto:
+
+```bash
+npm run dev:local
+```
+
+Abra http://127.0.0.1:5173 — o Vite faz proxy das rotas da API para a porta 8000.
+
+Requisitos: `.venv` criado, `pip install -r requirements.txt` e `.env` configurado.
+
+### Produção / só API
+
 ```bash
 uvicorn src.main:app --reload --host 127.0.0.1 --port 8000
 ```
-
-Abra http://127.0.0.1:8000 — informe o CNPJ e clique em **Cadastrar**.
 
 API: `POST /integrar` com `cnpj` (form ou JSON `{"cnpj": "..."}`).
 

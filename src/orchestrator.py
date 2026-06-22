@@ -4,10 +4,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import httpx
+
 from src.cnpj.brasilapi_client import BrasilApiError, fetch_cnpj
 from src.cnpj.validator import format_cnpj, normalize_cnpj, validate_cnpj
 from src.config import Settings
-from src.debug_log import dbg
 from src.integrations.tiflux_client import (
     TifluxApiError,
     TifluxClient,
@@ -414,17 +415,6 @@ async def integrate_company(
 
     existing_tf = await tiflux.find_by_cnpj(digits)
     existing_vh = await vhsys.find_by_cnpj(company.cnpj_formatted)
-    # #region agent log
-    dbg(
-        "H1",
-        "orchestrator.py:integrate_company",
-        "duplicate_lookup",
-        {
-            "exists_tiflux": existing_tf is not None,
-            "exists_vhsys": existing_vh is not None,
-        },
-    )
-    # #endregion
 
     target_set = _resolve_integration_targets(targets)
     result = IntegrationResult(cnpj=company.cnpj_formatted, company=company)
@@ -494,23 +484,6 @@ async def integrate_company(
     result.tiflux = tf_res
     result.vhsys = vh_res
     _finalize_integration_result(result, tf_res, vh_res, target_set)
-    # #region agent log
-    dbg(
-        "H5",
-        "orchestrator.py:integrate_company",
-        "integration_result_flags",
-        {
-            "targets": sorted(target_set),
-            "partial": result.partial,
-            "success": result.success,
-            "all_duplicates": result.all_duplicates,
-            "tf_success": tf_res.success,
-            "tf_skipped": tf_res.skipped,
-            "vh_success": vh_res.success,
-            "vh_skipped": vh_res.skipped,
-        },
-    )
-    # #endregion
 
     return result
 
@@ -678,6 +651,34 @@ async def fetch_consult_detail(
     return result
 
 
+async def fetch_tiflux_catalog(settings: Settings) -> dict[str, Any]:
+    _ensure_credentials(settings)
+    tiflux = TifluxClient(settings)
+    desks, groups = await asyncio.gather(
+        tiflux.list_desks(),
+        tiflux.list_technical_groups(),
+    )
+    return {"desks": desks, "technical_groups": groups}
+
+
+async def update_consult_tiflux_bindings(
+    client_id: int,
+    desk_ids: list[int],
+    technical_group_ids: list[int],
+    settings: Settings,
+) -> dict[str, Any]:
+    _ensure_credentials(settings)
+    tiflux = TifluxClient(settings)
+    try:
+        return await tiflux.update_client_bindings(
+            int(client_id),
+            desk_ids=desk_ids,
+            technical_group_ids=technical_group_ids,
+        )
+    except TifluxApiError as exc:
+        raise OrchestratorError(str(exc), getattr(exc, "status_code", None) or 502) from exc
+
+
 def _normalize_label(value: str) -> str:
     text = unicodedata.normalize("NFD", value or "")
     text = "".join(ch for ch in text if unicodedata.category(ch) != "Mn")
@@ -796,6 +797,13 @@ async def _emit_dormant_progress(
         await result
 
 
+def _dormant_scan_cap(settings: Settings, limit: int) -> int:
+    configured = settings.tiflux_dormant_scan_max
+    if configured <= 0:
+        return max(limit * 4, limit)
+    return configured
+
+
 async def scan_dormant_clients(
     settings: Settings,
     *,
@@ -808,7 +816,11 @@ async def scan_dormant_clients(
     cutoff = datetime.now(timezone.utc) - timedelta(days=months * 30)
     dormant: list[DormantClientEntry] = []
     scanned = 0
-    scan_cap = min(max(limit * 4, limit), 400)
+    scan_cap = _dormant_scan_cap(settings, limit)
+    batch_every = settings.tiflux_dormant_batch_pause_every
+    batch_pause_s = max(0, settings.tiflux_dormant_batch_pause_ms) / 1000.0
+    ticket_reason = f"sem_ticket_{months}m"
+    billing_reason = f"sem_cobranca_{months}m"
 
     await _emit_dormant_progress(
         on_progress,
@@ -822,83 +834,71 @@ async def scan_dormant_clients(
         },
     )
 
-    async for client in tiflux.iter_active_clients(max_clients=scan_cap):
-        scanned += 1
-        client_id = int(client["id"])
-        display_name = str(client.get("social") or client.get("name") or "")
-
-        await _emit_dormant_progress(
-            on_progress,
-            {
-                "phase": "tickets",
+    async with httpx.AsyncClient(timeout=60.0) as http:
+        async for client in tiflux.iter_active_clients(max_clients=scan_cap, http=http):
+            scanned += 1
+            client_id = int(client["id"])
+            display_name = str(client.get("social") or client.get("name") or "")
+            progress_base = {
                 "scanned": scanned,
                 "found": len(dormant),
                 "limit": limit,
                 "scan_cap": scan_cap,
-                "percent": min(99, int((scanned / scan_cap) * 100)),
+                "percent": min(99, int((scanned / scan_cap) * 100)) if scan_cap else 0,
                 "current_client": display_name,
-            },
-        )
-        last_ticket = await tiflux.get_last_ticket_datetime(client_id)
-        await asyncio.sleep(0.15)
+            }
 
-        await _emit_dormant_progress(
-            on_progress,
-            {
-                "phase": "billing",
-                "scanned": scanned,
-                "found": len(dormant),
-                "limit": limit,
-                "scan_cap": scan_cap,
-                "percent": min(99, int((scanned / scan_cap) * 100)),
-                "current_client": display_name,
-            },
-        )
-        last_billing = await tiflux.get_last_billing_datetime(client_id)
-        await asyncio.sleep(0.15)
-
-        no_ticket = last_ticket is None or last_ticket < cutoff
-        no_billing = last_billing is None or last_billing < cutoff
-        if not (no_ticket or no_billing):
-            continue
-
-        reasons: list[str] = []
-        if no_ticket:
-            reasons.append("sem_ticket_24m")
-        if no_billing:
-            reasons.append("sem_cobranca_24m")
-
-        dormant.append(
-            DormantClientEntry(
-                id=client_id,
-                name=str(client.get("name") or ""),
-                social=str(client.get("social") or ""),
-                social_revenue=str(client.get("social_revenue") or ""),
-                last_ticket_at=last_ticket.isoformat() if last_ticket else None,
-                last_billing_at=last_billing.isoformat() if last_billing else None,
-                reasons=reasons,
+            await _emit_dormant_progress(
+                on_progress,
+                {"phase": "tickets", **progress_base},
             )
-        )
-        await _emit_dormant_progress(
-            on_progress,
-            {
-                "phase": "scanning",
-                "scanned": scanned,
-                "found": len(dormant),
-                "limit": limit,
-                "scan_cap": scan_cap,
-                "percent": min(99, int((scanned / scan_cap) * 100)),
-                "current_client": display_name,
-            },
-        )
-        if len(dormant) >= limit:
-            return DormantScanResult(
-                months=months,
-                scanned=scanned,
-                total=len(dormant),
-                clients=dormant,
-                truncated=True,
+            last_ticket = await tiflux.get_last_ticket_datetime(client_id, http=http)
+
+            await _emit_dormant_progress(
+                on_progress,
+                {"phase": "billing", **progress_base},
             )
+            last_billing = await tiflux.get_last_billing_datetime(client_id, http=http)
+
+            no_ticket = last_ticket is None or last_ticket < cutoff
+            no_billing = last_billing is None or last_billing < cutoff
+            if not (no_ticket or no_billing):
+                if batch_every > 0 and scanned % batch_every == 0 and batch_pause_s > 0:
+                    await asyncio.sleep(batch_pause_s)
+                continue
+
+            reasons: list[str] = []
+            if no_ticket:
+                reasons.append(ticket_reason)
+            if no_billing:
+                reasons.append(billing_reason)
+
+            dormant.append(
+                DormantClientEntry(
+                    id=client_id,
+                    name=str(client.get("name") or ""),
+                    social=str(client.get("social") or ""),
+                    social_revenue=str(client.get("social_revenue") or ""),
+                    last_ticket_at=last_ticket.isoformat() if last_ticket else None,
+                    last_billing_at=last_billing.isoformat() if last_billing else None,
+                    reasons=reasons,
+                )
+            )
+            await _emit_dormant_progress(
+                on_progress,
+                {"phase": "scanning", **progress_base, "found": len(dormant)},
+            )
+            if len(dormant) >= limit:
+                return DormantScanResult(
+                    months=months,
+                    scanned=scanned,
+                    total=len(dormant),
+                    clients=dormant,
+                    truncated=True,
+                )
+
+            if batch_every > 0 and scanned % batch_every == 0 and batch_pause_s > 0:
+                await asyncio.sleep(batch_pause_s)
 
     return DormantScanResult(
         months=months,

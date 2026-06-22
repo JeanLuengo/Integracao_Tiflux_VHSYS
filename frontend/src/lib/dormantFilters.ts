@@ -24,8 +24,8 @@ export function matchesSearch(row: DormantClientRow, query: string): boolean {
 
 export function matchesReasonFilter(row: DormantClientRow, filter: ReasonFilter): boolean {
   const codes = row.reasonCodes
-  const hasTicket = codes.includes('sem_ticket_24m')
-  const hasBilling = codes.includes('sem_cobranca_24m')
+  const hasTicket = codes.some((c) => c.startsWith('sem_ticket_'))
+  const hasBilling = codes.some((c) => c.startsWith('sem_cobranca_'))
   switch (filter) {
     case 'sem_ticket':
       return hasTicket

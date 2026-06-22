@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 
@@ -7,7 +8,6 @@ import httpx
 
 from src.cnpj.validator import format_cnpj
 from src.config import Settings
-from src.debug_log import dbg
 from src.mapping.canonical import CompanyPayload
 
 from src.mapping.tiflux_mapper import to_tiflux_payload
@@ -112,6 +112,10 @@ class TifluxClient:
         self._settings = settings
 
         self._base = settings.tiflux_base_url.rstrip("/")
+
+        self._request_lock = asyncio.Lock()
+
+        self._last_request_at = 0.0
 
 
 
@@ -257,35 +261,14 @@ class TifluxClient:
 
     async def _prepare_client_for_inactivate(self, client_id: int, detail: dict) -> None:
         """Desvincula mesas/grupos antes de status=false (evita bug 50004 do TiFlux)."""
-        desk_count = len(detail.get("desk_ids") or [])
         prep = _build_inactivate_payload(detail)
         prep["desk_ids"] = []
         prep["technical_group_ids"] = []
         prep["status"] = True
         prep["authorization_flow"] = False
-        # #region agent log
-        dbg(
-            "H6",
-            "tiflux_client._prepare_client_for_inactivate",
-            "PUT preparação (payload completo)",
-            {"client_id": client_id, "desk_count": desk_count},
-        )
-        # #endregion
         response = await self._put_client(client_id, prep)
         if response.status_code in (200, 204):
             return
-        # #region agent log
-        dbg(
-            "H6",
-            "tiflux_client._prepare_client_for_inactivate",
-            "Preparação completa falhou; tentando payload mínimo",
-            {
-                "client_id": client_id,
-                "status_code": response.status_code,
-                "body_snippet": (response.text or "")[:400],
-            },
-        )
-        # #endregion
         response = await self._put_client(client_id, self._minimal_prep_payload(detail))
         if response.status_code not in (200, 204):
             self._raise_inactivate_error(response)
@@ -303,14 +286,6 @@ class TifluxClient:
             raise TifluxApiError("Cliente não encontrado no TiFlux.", 404, "")
 
         if detail.get("status") is False:
-            # #region agent log
-            dbg(
-                "H6",
-                "tiflux_client.delete_client",
-                "Cliente já inativo",
-                {"client_id": client_id},
-            )
-            # #endregion
             return
 
         prepared = False
@@ -318,42 +293,10 @@ class TifluxClient:
             await self._prepare_client_for_inactivate(client_id, detail)
             prepared = True
             detail = await self.get_by_id(client_id) or detail
-        except TifluxApiError as prep_exc:
-            # #region agent log
-            dbg(
-                "H6",
-                "tiflux_client.delete_client",
-                "Preparação falhou; tentará inativar mesmo assim",
-                {"client_id": client_id, "error": str(prep_exc)},
-            )
-            # #endregion
+        except TifluxApiError:
+            pass
 
-        # #region agent log
-        dbg(
-            "H1,H3,H5",
-            "tiflux_client.delete_client:before_put",
-            "PUT inativar (status=false)",
-            {
-                "client_id": client_id,
-                "prepared": prepared,
-                "desk_count": len(detail.get("desk_ids") or []),
-            },
-        )
-        # #endregion
         response = await self._put_inactivate(client_id, detail)
-
-        # #region agent log
-        dbg(
-            "H1,H4,H5",
-            "tiflux_client.delete_client:after_put",
-            "Resposta PUT inativar",
-            {
-                "client_id": client_id,
-                "status_code": response.status_code,
-                "body_snippet": (response.text or "")[:600],
-            },
-        )
-        # #endregion
 
         if response.status_code in (200, 204):
             verified = await self.get_by_id(client_id)
@@ -367,18 +310,6 @@ class TifluxClient:
                 prepared = True
             detail = await self.get_by_id(client_id) or detail
             response = await self._put_inactivate(client_id, detail)
-            # #region agent log
-            dbg(
-                "H1,H4",
-                "tiflux_client.delete_client:after_retry",
-                "Retry após preparação",
-                {
-                    "client_id": client_id,
-                    "status_code": response.status_code,
-                    "body_snippet": (response.text or "")[:400],
-                },
-            )
-            # #endregion
             if response.status_code in (200, 204):
                 verified = await self.get_by_id(client_id)
                 if verified and verified.get("status") is False:
@@ -393,29 +324,12 @@ class TifluxClient:
         cnpj_digits: str | None = None,
     ) -> int:
         """Confirma o ID via GET; se falhar, tenta reencontrar pelo CNPJ."""
-        original = client_id
         if await self.get_by_id(client_id):
-            # #region agent log
-            dbg(
-                "H2",
-                "tiflux_client.resolve_client_id",
-                "ID confirmado via GET",
-                {"original_id": original, "resolved_id": client_id},
-            )
-            # #endregion
             return client_id
         if cnpj_digits:
             refound = await self.find_by_cnpj(cnpj_digits)
             if refound and refound.get("id") is not None:
                 client_id = int(refound["id"])
-                # #region agent log
-                dbg(
-                    "H2",
-                    "tiflux_client.resolve_client_id",
-                    "ID reencontrado por CNPJ",
-                    {"original_id": original, "resolved_id": client_id},
-                )
-                # #endregion
                 return client_id
         raise TifluxApiError("Cliente não encontrado no TiFlux.", 404, "")
 
@@ -477,10 +391,50 @@ class TifluxClient:
             "technical_groups": groups,
         }
 
-    async def iter_active_clients(self, *, max_clients: int = 1500) -> AsyncIterator[dict]:
+    async def update_client_bindings(
+        self,
+        client_id: int,
+        *,
+        desk_ids: list[int],
+        technical_group_ids: list[int],
+    ) -> dict:
+        if not desk_ids:
+            raise TifluxApiError(
+                "Selecione ao menos uma mesa de serviço no TiFlux.",
+                422,
+            )
+        if not technical_group_ids:
+            raise TifluxApiError(
+                "Selecione ao menos um grupo de atendentes no TiFlux.",
+                422,
+            )
+
+        detail = await self.get_by_id(client_id)
+        if not detail:
+            raise TifluxApiError("Cliente não encontrado no TiFlux.", 404, "")
+
+        body = {key: detail[key] for key in _TIFLUX_PUT_FIELDS if key in detail}
+        body["desk_ids"] = desk_ids
+        body["technical_group_ids"] = technical_group_ids
+        if detail.get("status") is not False:
+            body["status"] = detail.get("status", True)
+        body["authorization_flow"] = False
+
+        response = await self._put_client(client_id, body)
+        self._ensure_ok(response, "atualizar mesas do cliente TiFlux")
+        return await self.get_client_profile(client_id)
+
+    async def iter_active_clients(
+        self,
+        *,
+        max_clients: int = 1500,
+        http: httpx.AsyncClient | None = None,
+    ) -> AsyncIterator[dict]:
         count = 0
         offset = 1
-        async with httpx.AsyncClient(timeout=60.0) as client:
+
+        async def _iterate(client: httpx.AsyncClient) -> AsyncIterator[dict]:
+            nonlocal count, offset
             while count < max_clients:
                 response = await self._get_with_retry(
                     client,
@@ -501,8 +455,22 @@ class TifluxClient:
                     break
                 offset += 1
 
-    async def get_last_ticket_datetime(self, client_id: int) -> datetime | None:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        if http is not None:
+            async for item in _iterate(http):
+                yield item
+            return
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            async for item in _iterate(client):
+                yield item
+
+    async def get_last_ticket_datetime(
+        self,
+        client_id: int,
+        *,
+        http: httpx.AsyncClient | None = None,
+    ) -> datetime | None:
+        async def _fetch(client: httpx.AsyncClient) -> datetime | None:
             response = await self._get_with_retry(
                 client,
                 f"{self._base}/tickets",
@@ -518,9 +486,21 @@ class TifluxClient:
                 ("updated_at", "created_at", "opened_at", "last_update", "date"),
             )
 
-    async def get_last_billing_datetime(self, client_id: int) -> datetime | None:
-        """Última cobrança via histórico de faturamentos (GET /reports/billings/history)."""
+        if http is not None:
+            return await _fetch(http)
+
         async with httpx.AsyncClient(timeout=30.0) as client:
+            return await _fetch(client)
+
+    async def get_last_billing_datetime(
+        self,
+        client_id: int,
+        *,
+        http: httpx.AsyncClient | None = None,
+    ) -> datetime | None:
+        """Última cobrança via histórico de faturamentos (GET /reports/billings/history)."""
+
+        async def _fetch(client: httpx.AsyncClient) -> datetime | None:
             response = await self._get_with_retry(
                 client,
                 f"{self._base}/reports/billings/history",
@@ -535,6 +515,12 @@ class TifluxClient:
             if not items:
                 return None
             return _latest_datetime_from_items(items, ("billing_date",))
+
+        if http is not None:
+            return await _fetch(http)
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            return await _fetch(client)
 
     async def create_client(
 
@@ -717,7 +703,26 @@ class TifluxClient:
 
         return None
 
+    async def _throttle_before_request(self) -> None:
+        interval = max(0, self._settings.tiflux_min_request_interval_ms) / 1000.0
+        if interval <= 0:
+            return
+        async with self._request_lock:
+            now = time.monotonic()
+            wait = interval - (now - self._last_request_at)
+            if wait > 0:
+                await asyncio.sleep(wait)
+            self._last_request_at = time.monotonic()
 
+    @staticmethod
+    def _retry_after_seconds(response: httpx.Response) -> float | None:
+        raw = response.headers.get("Retry-After")
+        if not raw:
+            return None
+        try:
+            return max(0.0, float(raw.strip()))
+        except ValueError:
+            return None
 
     async def _get_with_retry(
         self,
@@ -727,11 +732,13 @@ class TifluxClient:
         headers: dict[str, str],
         params: dict[str, object] | None,
         action: str,
-        max_retries: int = 5,
+        max_retries: int = 8,
         allow_statuses: frozenset[int] = frozenset(),
     ) -> httpx.Response:
         delay = 1.0
+        response: httpx.Response | None = None
         for attempt in range(max_retries):
+            await self._throttle_before_request()
             response = await client.get(url, headers=headers, params=params)
             if response.status_code in allow_statuses:
                 return response
@@ -740,8 +747,10 @@ class TifluxClient:
                 return response
             if attempt == max_retries - 1:
                 self._ensure_ok(response, action)
-            await asyncio.sleep(delay)
-            delay = min(delay * 2, 10.0)
+            retry_after = self._retry_after_seconds(response)
+            await asyncio.sleep(retry_after if retry_after is not None else delay)
+            delay = min(delay * 2, 30.0)
+        assert response is not None
         return response
 
     def _ensure_ok(self, response: httpx.Response, action: str) -> None:

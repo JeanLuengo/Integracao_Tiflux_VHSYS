@@ -1,76 +1,75 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState } from 'react'
 
-export type ThemeMode = 'light' | 'dark' | 'system'
+export type ThemeMode = 'light' | 'dark'
 
 type ThemeCtx = {
   mode: ThemeMode
-  resolved: 'light' | 'dark'
+  resolved: ThemeMode
   setMode: (mode: ThemeMode) => void
-  cycleMode: () => void
+  toggleMode: () => void
 }
 
-const STORAGE_KEY = 'avs-theme'
+const STORAGE_KEY = 'ngp:theme'
+const LEGACY_KEY = 'avs-theme'
 
 const Ctx = createContext<ThemeCtx>({
   mode: 'light',
   resolved: 'light',
   setMode: () => {},
-  cycleMode: () => {},
+  toggleMode: () => {},
 })
 
 function systemPrefersDark() {
   return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
-function resolveTheme(mode: ThemeMode): 'light' | 'dark' {
-  if (mode === 'system') return systemPrefersDark() ? 'dark' : 'light'
-  return mode
+function readStoredMode(): ThemeMode {
+  const stored = localStorage.getItem(STORAGE_KEY) as ThemeMode | null
+  if (stored === 'light' || stored === 'dark') return stored
+
+  const legacy = localStorage.getItem(LEGACY_KEY)
+  if (legacy === 'dark') return 'dark'
+  if (legacy === 'light') return 'light'
+  if (legacy === 'system') return systemPrefersDark() ? 'dark' : 'light'
+
+  return systemPrefersDark() ? 'dark' : 'light'
 }
 
-function applyTheme(resolved: 'light' | 'dark') {
-  document.documentElement.classList.toggle('dark', resolved === 'dark')
+function applyTheme(resolved: ThemeMode) {
+  document.documentElement.dataset.theme = resolved
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setModeState] = useState<ThemeMode>(() => {
-    const stored = localStorage.getItem(STORAGE_KEY) as ThemeMode | null
-    return stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'light'
-  })
-  const [resolved, setResolved] = useState<'light' | 'dark'>(() => resolveTheme(mode))
+  const [mode, setModeState] = useState<ThemeMode>(() => readStoredMode())
 
   useLayoutEffect(() => {
-    const next = resolveTheme(mode)
-    setResolved(next)
-    applyTheme(next)
+    applyTheme(mode)
     localStorage.setItem(STORAGE_KEY, mode)
   }, [mode])
 
   useEffect(() => {
-    if (mode !== 'system') return
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const onChange = () => {
-      const next = mq.matches ? 'dark' : 'light'
-      setResolved(next)
-      applyTheme(next)
+      if (!localStorage.getItem(STORAGE_KEY)) {
+        const next = mq.matches ? 'dark' : 'light'
+        setModeState(next)
+        applyTheme(next)
+      }
     }
     mq.addEventListener('change', onChange)
     return () => mq.removeEventListener('change', onChange)
-  }, [mode])
+  }, [])
 
   function setMode(next: ThemeMode) {
     setModeState(next)
   }
 
-  function cycleMode() {
-    setModeState((current) => {
-      if (current === 'light') return 'dark'
-      if (current === 'dark') return 'system'
-      return 'light'
-    })
+  function toggleMode() {
+    setModeState((current) => (current === 'light' ? 'dark' : 'light'))
   }
 
   return (
-    <Ctx.Provider value={{ mode, resolved, setMode, cycleMode }}>
+    <Ctx.Provider value={{ mode, resolved: mode, setMode, toggleMode }}>
       {children}
     </Ctx.Provider>
   )

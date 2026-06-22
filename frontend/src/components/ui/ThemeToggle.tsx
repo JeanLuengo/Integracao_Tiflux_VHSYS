@@ -1,32 +1,25 @@
-import { Monitor, Moon, Sun } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Moon, Sun } from 'lucide-react'
 import { useTheme } from '@/contexts/ThemeProvider'
 import { Button } from '@/components/ui/button'
+import { topbarActionBtnClass } from '@/lib/ui-classes'
 import { cn } from '@/lib/cn'
 
-const labels = {
-  light: 'Tema claro',
-  dark: 'Tema escuro',
-  system: 'Sistema',
-}
-
 export function ThemeToggle({ className }: { className?: string }) {
-  const { mode, cycleMode } = useTheme()
-  const Icon = mode === 'dark' ? Moon : mode === 'light' ? Sun : Monitor
+  const { mode, toggleMode } = useTheme()
+  const Icon = mode === 'dark' ? Moon : Sun
+  const label = mode === 'dark' ? 'Tema escuro' : 'Tema claro'
 
   return (
     <Button
       type="button"
       variant="ghost"
       size="icon"
-      onClick={cycleMode}
-      className={cn('h-8 w-8', className)}
-      aria-label={labels[mode]}
-      title={labels[mode]}
+      onClick={toggleMode}
+      className={cn(topbarActionBtnClass, className)}
+      aria-label={label}
+      title={label}
     >
-      <motion.div animate={{ rotate: mode === 'dark' ? 180 : 0 }} transition={{ duration: 0.3 }}>
-        <Icon className="h-4 w-4" />
-      </motion.div>
+      <Icon className="h-4 w-4 transition-transform duration-[var(--motion-duration-fast)]" />
     </Button>
   )
 }

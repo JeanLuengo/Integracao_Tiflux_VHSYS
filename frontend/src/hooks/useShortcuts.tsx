@@ -4,7 +4,7 @@ import { useTheme } from '@/contexts/ThemeProvider'
 
 export function useShortcuts() {
   const { toggle, setOpen } = useCommandPalette()
-  const { cycleMode } = useTheme()
+  const { toggleMode } = useTheme()
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -19,10 +19,10 @@ export function useShortcuts() {
       }
       if (mod && e.shiftKey && e.key.toLowerCase() === 'l') {
         e.preventDefault()
-        cycleMode()
+        toggleMode()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [toggle, setOpen, cycleMode])
+  }, [toggle, setOpen, toggleMode])
 }

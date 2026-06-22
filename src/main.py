@@ -11,17 +11,18 @@ from src.auth.deps import require_user
 from src.auth.local import RememberMeMiddleware
 from src.auth.router import build_auth_router
 from src.config import get_settings
-from src.debug_log import dbg
 from src.integrations.tiflux_client import TifluxApiError
 from src.orchestrator import (
     OrchestratorError,
     execute_inactivate,
     fetch_consult_detail,
+    fetch_tiflux_catalog,
     integrate_company,
     preview_cnpj,
     preview_consult_client,
     preview_inactivate_client,
     scan_dormant_clients,
+    update_consult_tiflux_bindings,
 )
 from src.stats import compute_stats
 
@@ -168,7 +169,6 @@ async def integrar(request: Request, _user: dict = Depends(require_user)):
         )
 
     try:
-        dbg("H4", "main.py:integrar", "integrate_start", {"desk_count": len(desk_ids)})
         result = await integrate_company(
             company_data,
             desk_ids=desk_ids,
@@ -177,14 +177,12 @@ async def integrar(request: Request, _user: dict = Depends(require_user)):
             override_inactive_registration=override_inactive,
             targets=targets,
         )
-        dbg("H4", "main.py:integrar", "integrate_done", {"success": result.success, "all_duplicates": result.all_duplicates})
     except OrchestratorError as exc:
         return JSONResponse(
             status_code=exc.status_code,
             content={"success": False, "error": str(exc)},
         )
     except Exception as exc:
-        dbg("H1", "main.py:integrar", "uncaught_exception", {"type": type(exc).__name__, "err": str(exc)})
         return JSONResponse(
             status_code=500,
             content={"success": False, "error": str(exc)},
@@ -362,6 +360,67 @@ async def consulta_detalhe(request: Request, _user: dict = Depends(require_user)
     return JSONResponse(status_code=status, content=payload)
 
 
+@app.get("/consulta/tiflux/opcoes")
+async def consulta_tiflux_opcoes(_user: dict = Depends(require_user)):
+    try:
+        catalog = await fetch_tiflux_catalog(get_settings())
+        return JSONResponse(content={"success": True, **catalog})
+    except OrchestratorError as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"success": False, "error": str(exc)},
+        )
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(exc)},
+        )
+
+
+@app.post("/consulta/tiflux/vinculos")
+async def consulta_tiflux_vinculos(request: Request, _user: dict = Depends(require_user)):
+    if "application/json" not in request.headers.get("content-type", ""):
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Use JSON no corpo da requisição."},
+        )
+
+    body = await request.json()
+    client_id = _optional_int(body.get("tiflux_client_id"))
+    desk_ids = _parse_id_list(body.get("desk_ids"))
+    technical_group_ids = _parse_id_list(body.get("technical_group_ids"))
+
+    if client_id is None:
+        return JSONResponse(
+            status_code=400,
+            content={"success": False, "error": "Informe tiflux_client_id."},
+        )
+
+    try:
+        profile = await update_consult_tiflux_bindings(
+            client_id,
+            desk_ids,
+            technical_group_ids,
+            get_settings(),
+        )
+        return JSONResponse(
+            content={
+                "success": True,
+                "tiflux": {"success": True, "data": profile},
+            },
+        )
+    except OrchestratorError as exc:
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"success": False, "error": str(exc)},
+        )
+    except Exception as exc:
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "error": str(exc)},
+        )
+
+
 def _dormant_error_response(exc: Exception) -> tuple[int, dict[str, Any]]:
     if isinstance(exc, OrchestratorError):
         return exc.status_code, {"success": False, "error": str(exc)}
@@ -435,33 +494,15 @@ async def relatorio_empresas_inativas_stream(
 
 @app.get("/stats")
 async def stats(_user: dict = Depends(require_user)):
-    from src.debug_log import dbg
-    import time as _time
-
-    t0 = _time.monotonic()
-    dbg("A", "main.py:stats", "stats_request_start", {})
     try:
         result = await compute_stats(get_settings())
-        dbg(
-            "A",
-            "main.py:stats",
-            "stats_request_done",
-            {
-                "elapsed_ms": int((_time.monotonic() - t0) * 1000),
-                "tiflux_total": result.get("tiflux_total"),
-                "vhsys_total": result.get("vhsys_total"),
-                "tiflux_dormant": result.get("tiflux_dormant"),
-            },
-        )
         return JSONResponse(content=result)
     except OrchestratorError as exc:
-        dbg("C", "main.py:stats", "stats_orchestrator_error", {"error": str(exc), "status": exc.status_code})
         return JSONResponse(
             status_code=exc.status_code,
             content={"success": False, "error": str(exc)},
         )
     except Exception as exc:
-        dbg("C", "main.py:stats", "stats_exception", {"error": str(exc), "type": type(exc).__name__})
         return JSONResponse(
             status_code=500,
             content={"success": False, "error": str(exc)},

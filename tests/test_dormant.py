@@ -29,7 +29,7 @@ async def test_scan_dormant_flags_no_ticket(env):
     old = datetime.now(timezone.utc) - timedelta(days=800)
     recent = datetime.now(timezone.utc) - timedelta(days=10)
 
-    async def fake_iter(*, max_clients=1500):
+    async def fake_iter(*, max_clients=1500, http=None):
         yield {"id": 1, "name": "A", "social": "A", "social_revenue": "123"}
         yield {"id": 2, "name": "B", "social": "B", "social_revenue": "456"}
 

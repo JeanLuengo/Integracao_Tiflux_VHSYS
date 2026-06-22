@@ -1,4 +1,5 @@
 import { formatCnpj, formatDate } from './format'
+import { REPORT_LOGO_HTML } from './reportBrand'
 
 const TF_LABELS: Record<string, string> = {
   id: 'Código TiFlux', name: 'Nome fantasia', social: 'Razão social', social_revenue: 'CNPJ',
@@ -252,7 +253,8 @@ dt{color:#64748b;font-weight:600} dd{margin:0} ul{margin:0;padding-left:1.2rem}
 .actions{margin-bottom:1rem} button{padding:.5rem 1rem;margin-right:.5rem}
 @media print{.actions{display:none}}
 </style></head><body>
-<h1>AVS Management — Relatório de consulta</h1>
+${REPORT_LOGO_HTML}
+<h1 style="font-size:1.25rem;margin:0 0 1rem">Relatório de consulta</h1>
 <p><strong>Consulta:</strong> ${parsed.query}</p>
 <div class="actions"><button onclick="window.print()">Imprimir</button></div>
 <div class="grid">

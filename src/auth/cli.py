@@ -9,10 +9,11 @@ from src.auth.passwords import hash_password, validate_password_policy
 from src.config import clear_settings_cache, get_settings
 
 SEED_USERS = [
-    ("andre@avs.com.br", "André"),
-    ("susana@avs.com.br", "Susana"),
-    ("aline@avs.com.br", "Aline"),
-    ("lucas.silva@avs.com.br", "Lucas Silva"),
+    ("jean.nascimento@avstecnologia.cloud", "Jean Nascimento"),
+    ("andre.moraes@avstecnologia.cloud", "André Moraes"),
+    ("susana.veiga@avstecnologia.cloud", "Susana Veiga"),
+    ("alinne.freitas@avstecnologia.cloud", "Alinne Freitas"),
+    ("lucas.silva@avstecnologia.cloud", "Lucas Silva"),
 ]
 
 

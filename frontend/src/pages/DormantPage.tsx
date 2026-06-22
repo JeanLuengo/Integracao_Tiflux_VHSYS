@@ -74,6 +74,11 @@ export function DormantPage() {
       <h1 className="mb-2 text-2xl font-semibold tracking-tight">Empresas sem atividade</h1>
       <p className="mb-6 text-sm text-muted-foreground">
         Sem ticket ou cobrança no TiFlux no período selecionado.
+        {Number(months) >= 36 && (
+          <span className="mt-1 block text-xs">
+            Varreduras de 36 meses podem levar alguns minutos para respeitar o limite da API TiFlux.
+          </span>
+        )}
       </p>
 
       {!data && (
@@ -104,7 +109,7 @@ export function DormantPage() {
                   <span className="text-muted-foreground">{progressLabel}</span>
                   <span className="font-mono text-xs">{progress?.percent ?? 0}%</span>
                 </div>
-                <Progress value={progress?.percent ?? 2} />
+                <Progress variant="accent" value={progress?.percent ?? 2} />
                 {progress?.current_client && (
                   <Badge variant="secondary" className="font-normal">
                     {progress.current_client}

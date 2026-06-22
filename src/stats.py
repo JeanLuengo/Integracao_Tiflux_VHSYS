@@ -8,7 +8,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from src.config import Settings
-from src.debug_log import dbg
 from src.integrations.tiflux_client import TifluxClient
 from src.integrations.vhsys_client import VhsysClient
 from src.orchestrator import _ensure_credentials, _parse_iso_datetime, scan_dormant_clients
@@ -73,18 +72,6 @@ async def _paginate_vhsys(vhsys: VhsysClient, *, lixeira: str) -> list[dict[str,
 
     while page_num < _VHSYS_MAX_PAGES:
         page = await vhsys._list_clientes({"lixeira": lixeira, "limit": limit, "offset": offset})
-        dbg(
-            "B",
-            "stats.py:_paginate_vhsys",
-            "vhsys_page",
-            {
-                "lixeira": lixeira,
-                "offset": offset,
-                "page_len": len(page),
-                "total_so_far": len(items),
-                "page_num": page_num,
-            },
-        )
         if not page:
             break
 
@@ -103,13 +90,19 @@ async def _paginate_vhsys(vhsys: VhsysClient, *, lixeira: str) -> list[dict[str,
         if len(page) < limit:
             break
         if added == 0:
-            dbg("B", "stats.py:_paginate_vhsys", "vhsys_offset_ignored", {"lixeira": lixeira, "offset": offset})
             break
 
         offset += limit
         page_num += 1
 
     return items
+
+
+def _is_vhsys_client_active(item: dict[str, Any]) -> bool:
+    raw = item.get("situacao_cliente")
+    if raw is None or not str(raw).strip():
+        return False
+    return str(raw).strip().lower() == "ativo"
 
 
 async def _count_vhsys_clients(vhsys: VhsysClient) -> tuple[int, int]:
@@ -120,13 +113,15 @@ async def _count_vhsys_clients(vhsys: VhsysClient) -> tuple[int, int]:
         _paginate_vhsys(vhsys, lixeira="Sim"),
     )
 
+    active_only = [item for item in active_items if _is_vhsys_client_active(item)]
+
     inactivated_30d = 0
     for item in trash_items:
         updated = _parse_client_date(item, _UPDATED_FIELDS)
         if updated is not None and updated >= cutoff:
             inactivated_30d += 1
 
-    return len(active_items), inactivated_30d
+    return len(active_only), inactivated_30d
 
 
 async def _warm_dormant_cache(settings: Settings) -> None:
@@ -136,15 +131,13 @@ async def _warm_dormant_cache(settings: Settings) -> None:
         if cached is not None and now - cached[0] < DORMANT_CACHE_TTL:
             return
 
-        dbg("A", "stats.py:_warm_dormant_cache", "dormant_warm_start", {})
         try:
             result = await scan_dormant_clients(settings, months=24, limit=200)
             count = result.total
             _STATS_CACHE["dormant"] = (time.time(), {"count": count})
             _STATS_CACHE.pop("global", None)
-            dbg("A", "stats.py:_warm_dormant_cache", "dormant_warm_done", {"count": count})
-        except Exception as exc:
-            dbg("A", "stats.py:_warm_dormant_cache", "dormant_warm_error", {"error": str(exc)})
+        except Exception:
+            pass
 
 
 def _schedule_dormant_warm(settings: Settings) -> None:
@@ -161,14 +154,12 @@ async def compute_stats(settings: Settings, *, ttl: int = STATS_CACHE_TTL) -> di
     if cached is not None:
         ts, data = cached
         if now - ts < ttl:
-            dbg("A", "stats.py:compute_stats", "cache_hit", {"age_s": int(now - ts)})
             merged = dict(data)
             dormant, dormant_status = _read_dormant_cache()
             merged["tiflux_dormant"] = dormant
             merged["dormant_status"] = dormant_status
             return merged
 
-    dbg("A", "stats.py:compute_stats", "cache_miss_compute_start", {})
     _ensure_credentials(settings)
 
     tiflux = TifluxClient(settings)
@@ -196,20 +187,6 @@ async def compute_stats(settings: Settings, *, ttl: int = STATS_CACHE_TTL) -> di
         "computed_at": computed_at,
         "stale_after_seconds": ttl,
     }
-
-    dbg(
-        "A",
-        "stats.py:compute_stats",
-        "compute_done",
-        {
-            "tiflux_total": tiflux_total,
-            "vhsys_total": vhsys_total,
-            "registered_30d": registered_30d,
-            "inactivated_30d": inactivated_30d,
-            "tiflux_dormant": tiflux_dormant,
-            "dormant_status": dormant_status,
-        },
-    )
 
     _STATS_CACHE[cache_key] = (now, payload)
     return payload

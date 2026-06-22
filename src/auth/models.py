@@ -39,9 +39,19 @@ class User:
     is_active: bool
     created_at: str
     updated_at: str
+    backup_email: str = ""
+    phone: str = ""
 
     def to_session_dict(self) -> dict:
         return {"email": self.email, "name": self.name, "id": self.id}
+
+    def to_profile_dict(self) -> dict:
+        return {
+            "email": self.email,
+            "name": self.name,
+            "backup_email": self.backup_email or "",
+            "phone": self.phone or "",
+        }
 
 
 class AuthDatabase:
@@ -108,8 +118,17 @@ class AuthDatabase:
                     ON login_attempts (email, ip_address, attempted_at);
                 """
             )
+            self._migrate_user_profile_columns(conn)
+
+    def _migrate_user_profile_columns(self, conn: sqlite3.Connection) -> None:
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
+        if "backup_email" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN backup_email TEXT NOT NULL DEFAULT ''")
+        if "phone" not in columns:
+            conn.execute("ALTER TABLE users ADD COLUMN phone TEXT NOT NULL DEFAULT ''")
 
     def _row_to_user(self, row: sqlite3.Row) -> User:
+        keys = row.keys()
         return User(
             id=row["id"],
             email=row["email"],
@@ -118,6 +137,8 @@ class AuthDatabase:
             is_active=bool(row["is_active"]),
             created_at=row["created_at"],
             updated_at=row["updated_at"],
+            backup_email=row["backup_email"] if "backup_email" in keys else "",
+            phone=row["phone"] if "phone" in keys else "",
         )
 
     def get_user_by_email(self, email: str) -> User | None:
@@ -161,6 +182,27 @@ class AuthDatabase:
                 "UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?",
                 (password_hash, now, user_id),
             )
+
+    def update_profile(
+        self,
+        user_id: int,
+        *,
+        name: str,
+        backup_email: str,
+        phone: str,
+    ) -> User | None:
+        now = _iso(_utcnow())
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE users
+                SET name = ?, backup_email = ?, phone = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (name.strip(), backup_email.strip(), phone.strip(), now, user_id),
+            )
+            row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        return self._row_to_user(row) if row else None
 
     def record_login_attempt(self, email: str, ip_address: str) -> None:
         with self._connect() as conn:
@@ -219,7 +261,7 @@ class AuthDatabase:
         with self._connect() as conn:
             row = conn.execute(
                 """
-                SELECT t.*, u.email, u.name, u.password_hash, u.is_active, u.created_at, u.updated_at
+                SELECT u.*
                 FROM password_reset_tokens t
                 JOIN users u ON u.id = t.user_id
                 WHERE t.token_hash = ? AND t.used_at IS NULL AND t.expires_at > ?
@@ -229,18 +271,10 @@ class AuthDatabase:
             if not row:
                 return None
             conn.execute(
-                "UPDATE password_reset_tokens SET used_at = ? WHERE id = ?",
-                (_iso(now), row["id"]),
+                "UPDATE password_reset_tokens SET used_at = ? WHERE token_hash = ?",
+                (_iso(now), token_hash),
             )
-            return User(
-                id=row["user_id"],
-                email=row["email"],
-                name=row["name"],
-                password_hash=row["password_hash"],
-                is_active=bool(row["is_active"]),
-                created_at=row["created_at"],
-                updated_at=row["updated_at"],
-            )
+            return self._row_to_user(row)
 
     def create_remember_token(self, user_id: int, *, days: int) -> str:
         raw = generate_token()

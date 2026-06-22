@@ -8,6 +8,7 @@ const LABELS: Record<string, string> = {
   '/inativar': 'Inativar',
   '/consultar': 'Consultar',
   '/empresas-inativas': 'Empresas inativas',
+  '/perfil': 'Perfil',
 }
 
 export function Breadcrumbs({ className }: { className?: string }) {

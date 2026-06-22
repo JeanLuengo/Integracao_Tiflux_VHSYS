@@ -1,13 +1,12 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   flexRender,
   getCoreRowModel,
-  getFilteredRowModel,
   getPaginationRowModel,
-  getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type PaginationState,
   type SortingState,
 } from '@tanstack/react-table'
 import { Download, Eye, EyeOff, FileText, MoreHorizontal, Printer, Search } from 'lucide-react'
@@ -34,7 +33,8 @@ import {
   type DormantClientRow,
   type ParsedDormantReport,
 } from '@/lib/dormantReport'
-import { filterAndSortDormantRows, type ReasonFilter } from '@/lib/dormantFilters'
+import { filterAndSortDormantRows, type ReasonFilter, type SortKey } from '@/lib/dormantFilters'
+import { applyPaginationUpdate } from '@/lib/dormantPagination'
 import { formatCnpj, formatDate } from '@/lib/format'
 import { cn } from '@/lib/cn'
 
@@ -49,6 +49,13 @@ const FILTER_OPTIONS: { id: ReasonFilter; label: string }[] = [
   { id: 'sem_cobranca', label: 'Sem cobrança' },
   { id: 'sem_ambos', label: 'Sem ambos' },
 ]
+
+const SORT_KEYS: SortKey[] = ['social', 'cnpj', 'last_ticket_at', 'last_billing_at', 'reasons']
+
+function toSortKey(id: string | undefined): SortKey {
+  if (id && SORT_KEYS.includes(id as SortKey)) return id as SortKey
+  return 'social'
+}
 
 function buildExportPayload(parsed: ParsedDormantReport, rows: DormantClientRow[]) {
   return {
@@ -68,22 +75,31 @@ function buildExportPayload(parsed: ParsedDormantReport, rows: DormantClientRow[
 
 export function DormantReportView({ raw, onNewReport }: Props) {
   const navigate = useNavigate()
-  const parsed = parseDormantReport(raw)
+  const parsed = useMemo(() => parseDormantReport(raw), [raw])
   const stamp = new Date().toISOString().slice(0, 10)
 
   const [search, setSearch] = useState('')
   const [reasonFilter, setReasonFilter] = useState<ReasonFilter>('all')
   const [sorting, setSorting] = useState<SortingState>([{ id: 'social', desc: false }])
   const [showCompanies, setShowCompanies] = useState(true)
-  const [pageSize, setPageSize] = useState('25')
+  const [pagination, setPagination] = useState<PaginationState>({ pageIndex: 0, pageSize: 25 })
+
+  const onPaginationChange = useCallback((updater: React.SetStateAction<PaginationState>) => {
+    setPagination((prev) => applyPaginationUpdate(prev, updater))
+  }, [])
+
+  useEffect(() => {
+    setPagination((p) => (p.pageIndex === 0 ? p : { ...p, pageIndex: 0 }))
+  }, [search, reasonFilter])
 
   const filteredRows = useMemo(
-    () => filterAndSortDormantRows(parsed.clients, {
-      search,
-      reasonFilter,
-      sortKey: (sorting[0]?.id as 'social') || 'social',
-      sortDir: sorting[0]?.desc ? 'desc' : 'asc',
-    }),
+    () =>
+      filterAndSortDormantRows(parsed.clients, {
+        search,
+        reasonFilter,
+        sortKey: toSortKey(sorting[0]?.id),
+        sortDir: sorting[0]?.desc ? 'desc' : 'asc',
+      }),
     [parsed.clients, search, reasonFilter, sorting],
   )
 
@@ -126,6 +142,7 @@ export function DormantReportView({ raw, onNewReport }: Props) {
       {
         id: 'actions',
         header: '',
+        enableSorting: false,
         cell: ({ row }) => (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -134,7 +151,11 @@ export function DormantReportView({ raw, onNewReport }: Props) {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => navigate(`/consultar?q=${encodeURIComponent(row.original.social_revenue || row.original.social)}`)}>
+              <DropdownMenuItem
+                onClick={() =>
+                  navigate(`/consultar?q=${encodeURIComponent(row.original.social_revenue || row.original.social)}`)
+                }
+              >
                 Consultar
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate(`/inativar?q=${encodeURIComponent(row.original.social || '')}`)}>
@@ -151,13 +172,13 @@ export function DormantReportView({ raw, onNewReport }: Props) {
   const table = useReactTable({
     data: filteredRows,
     columns,
-    state: { sorting },
+    state: { sorting, pagination },
     onSortingChange: setSorting,
+    onPaginationChange,
     getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
-    initialState: { pagination: { pageSize: 25 } },
+    autoResetPageIndex: false,
+    manualSorting: true,
   })
 
   const exportParsed = useMemo(() => ({ ...parsed, total: filteredRows.length, clients: filteredRows }), [parsed, filteredRows])
@@ -184,16 +205,38 @@ export function DormantReportView({ raw, onNewReport }: Props) {
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowCompanies((v) => !v)}>
-            {showCompanies ? <><EyeOff className="h-4 w-4" /> Ocultar</> : <><Eye className="h-4 w-4" /> Exibir</>}
+            {showCompanies ? (
+              <>
+                <EyeOff className="h-4 w-4" /> Ocultar
+              </>
+            ) : (
+              <>
+                <Eye className="h-4 w-4" /> Exibir
+              </>
+            )}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm"><MoreHorizontal className="h-4 w-4" /> Exportar</Button>
+              <Button variant="outline" size="sm">
+                <MoreHorizontal className="h-4 w-4" /> Exportar
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" /> Imprimir</DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSaveHtml}><FileText className="mr-2 h-4 w-4" /> HTML</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => downloadBlob(JSON.stringify(buildExportPayload(parsed, filteredRows), null, 2), `empresas-${stamp}.json`, 'application/json')}>
+              <DropdownMenuItem onClick={() => window.print()}>
+                <Printer className="mr-2 h-4 w-4" /> Imprimir
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSaveHtml}>
+                <FileText className="mr-2 h-4 w-4" /> HTML
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  downloadBlob(
+                    JSON.stringify(buildExportPayload(parsed, filteredRows), null, 2),
+                    `empresas-${stamp}.json`,
+                    'application/json',
+                  )
+                }
+              >
                 <Download className="mr-2 h-4 w-4" /> JSON
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -230,7 +273,7 @@ export function DormantReportView({ raw, onNewReport }: Props) {
                   <tr key={hg.id} className="border-b bg-muted/50">
                     {hg.headers.map((h) => (
                       <th key={h.id} className="p-3 font-semibold">
-                        {h.isPlaceholder ? null : (
+                        {h.isPlaceholder ? null : h.column.getCanSort() ? (
                           <button
                             type="button"
                             className="flex items-center gap-1 hover:text-primary"
@@ -239,6 +282,8 @@ export function DormantReportView({ raw, onNewReport }: Props) {
                             {flexRender(h.column.columnDef.header, h.getContext())}
                             {{ asc: ' ↑', desc: ' ↓' }[h.column.getIsSorted() as string] ?? null}
                           </button>
+                        ) : (
+                          flexRender(h.column.columnDef.header, h.getContext())
                         )}
                       </th>
                     ))}
@@ -271,13 +316,12 @@ export function DormantReportView({ raw, onNewReport }: Props) {
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground">Por página</span>
               <Select
-                value={pageSize}
-                onValueChange={(v) => {
-                  setPageSize(v)
-                  table.setPageSize(Number(v))
-                }}
+                value={String(pagination.pageSize)}
+                onValueChange={(v) => onPaginationChange({ pageIndex: 0, pageSize: Number(v) })}
               >
-                <SelectTrigger className="h-8 w-[80px]"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-8 w-[80px]">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="25">25</SelectItem>
                   <SelectItem value="50">50</SelectItem>
@@ -302,7 +346,9 @@ export function DormantReportView({ raw, onNewReport }: Props) {
 
       {onNewReport && (
         <div className="no-print mt-6">
-          <Button variant="outline" onClick={onNewReport}>Gerar novo relatório</Button>
+          <Button variant="outline" onClick={onNewReport}>
+            Gerar novo relatório
+          </Button>
         </div>
       )}
     </div>

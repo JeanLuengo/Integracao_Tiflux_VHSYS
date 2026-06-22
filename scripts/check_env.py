@@ -1,26 +1,7 @@
 """Valida formato do .env e testa APIs (sem imprimir tokens completos)."""
-import json
-import time
-from pathlib import Path
-
 import httpx
 
 from src.config import Settings
-
-LOG = Path(__file__).resolve().parent.parent / "debug-d84fb3.log"
-
-
-def dbg(hypothesis_id: str, message: str, data: dict) -> None:
-    entry = {
-        "sessionId": "d84fb3",
-        "hypothesisId": hypothesis_id,
-        "location": "scripts/check_env.py",
-        "message": message,
-        "data": data,
-        "timestamp": int(time.time() * 1000),
-    }
-    with LOG.open("a", encoding="utf-8") as f:
-        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
 
 
 def audit(name: str, val: str) -> dict:
@@ -53,18 +34,15 @@ def main() -> None:
     ]
     for a in audits:
         print(a)
-        dbg("H5", "env_audit", a)
 
     tf = s.tiflux_api_token
-    status, snippet = test_tiflux(tf, s.tiflux_base_url)
+    status, _ = test_tiflux(tf, s.tiflux_base_url)
     print(f"TIFLUX_with_env_value: HTTP {status}")
-    dbg("H5", "tiflux_test_raw", {"http": status, "snippet": snippet})
 
     if tf.startswith("[") and tf.endswith("]"):
         clean = tf[1:-1]
-        status2, snippet2 = test_tiflux(clean, s.tiflux_base_url)
+        status2, _ = test_tiflux(clean, s.tiflux_base_url)
         print(f"TIFLUX_without_brackets: HTTP {status2}")
-        dbg("H6", "tiflux_test_clean", {"http": status2, "snippet": snippet2})
 
 
 if __name__ == "__main__":

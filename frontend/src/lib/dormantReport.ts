@@ -1,9 +1,31 @@
 import { formatCnpj, formatDate } from './format'
 import { downloadBlob } from './consultReport'
+import { REPORT_LOGO_HTML } from './reportBrand'
 
 export const REASON_LABELS: Record<string, string> = {
   sem_ticket_24m: 'Sem ticket em 24 meses',
   sem_cobranca_24m: 'Sem cobrança em 24 meses',
+}
+
+export function reasonCodeToLabel(code: string, fallbackMonths?: number): string {
+  const ticketMatch = code.match(/^sem_ticket_(\d+)m$/)
+  if (ticketMatch) {
+    return `Sem ticket em ${ticketMatch[1]} meses`
+  }
+  const billingMatch = code.match(/^sem_cobranca_(\d+)m$/)
+  if (billingMatch) {
+    return `Sem cobrança em ${billingMatch[1]} meses`
+  }
+  if (REASON_LABELS[code]) {
+    return REASON_LABELS[code]
+  }
+  if (fallbackMonths && code === 'sem_ticket') {
+    return `Sem ticket em ${fallbackMonths} meses`
+  }
+  if (fallbackMonths && code === 'sem_cobranca') {
+    return `Sem cobrança em ${fallbackMonths} meses`
+  }
+  return code.replace(/_/g, ' ')
 }
 
 export type DormantClientRow = {
@@ -28,9 +50,10 @@ export type ParsedDormantReport = {
 }
 
 export function parseDormantReport(data: Record<string, unknown>): ParsedDormantReport {
+  const months = Number(data.months) || 24
   const clients = ((data.clients as Array<Record<string, unknown>>) || []).map((c) => {
     const reasonCodes = ((c.reasons as string[]) || [])
-    const reasonLabels = reasonCodes.map((r) => REASON_LABELS[r] || r.replace(/_/g, ' '))
+    const reasonLabels = reasonCodes.map((r) => reasonCodeToLabel(r, months))
     return {
       id: Number(c.id),
       name: String(c.name || ''),
@@ -44,7 +67,7 @@ export function parseDormantReport(data: Record<string, unknown>): ParsedDormant
     }
   })
   return {
-    months: Number(data.months) || 24,
+    months,
     scanned: Number(data.scanned) || 0,
     total: Number(data.total) || clients.length,
     truncated: Boolean(data.truncated),
@@ -74,7 +97,8 @@ th{background:#1a4f8c;color:#fff}
 .actions{margin-bottom:1rem}
 @media print{.actions{display:none}}
 </style></head><body>
-<h1>AVS Management — Empresas sem atividade</h1>
+${REPORT_LOGO_HTML}
+<h1 style="font-size:1.25rem;margin:0 0 1rem">Empresas sem atividade</h1>
 <p class="meta">Período: últimos <strong>${parsed.months}</strong> meses · Analisados: <strong>${parsed.scanned}</strong> · Encontrados: <strong>${parsed.total}</strong>${parsed.truncated ? ' (lista truncada)' : ''}</p>
 <div class="actions"><button onclick="window.print()">Imprimir</button></div>
 <table>

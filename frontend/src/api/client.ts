@@ -28,6 +28,18 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(body),
     }),
+  getProfile: () =>
+    request<{ email: string; name: string; backup_email: string; phone: string }>('/auth/profile'),
+  updateProfile: (body: { name: string; backup_email: string; phone: string }) =>
+    request<{ email: string; name: string; backup_email: string; phone: string }>('/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    }),
+  changePassword: (body: { current_password: string; new_password: string; confirm_password: string }) =>
+    request<{ ok: boolean; message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
   previewCnpj: (cnpj: string) => request<Record<string, unknown>>('/preview', { method: 'POST', body: JSON.stringify({ cnpj }) }),
   integrar: (body: Record<string, unknown>) => request<Record<string, unknown>>('/integrar', { method: 'POST', body: JSON.stringify(body) }),
   inativarPreview: (query: string) => request<Record<string, unknown>>('/inativar/preview', { method: 'POST', body: JSON.stringify({ query }) }),
@@ -36,6 +48,19 @@ export const api = {
   consultaPreview: (query: string) => request<Record<string, unknown>>('/consulta/preview', { method: 'POST', body: JSON.stringify({ query }) }),
   consultaDetalhe: (body: Record<string, unknown>) =>
     request<Record<string, unknown>>('/consulta/detalhe', { method: 'POST', body: JSON.stringify(body) }),
+  consultaTifluxOpcoes: () =>
+    request<{ success: boolean; desks: Array<Record<string, unknown>>; technical_groups: Array<Record<string, unknown>> }>(
+      '/consulta/tiflux/opcoes',
+    ),
+  consultaTifluxVinculos: (body: {
+    tiflux_client_id: number
+    desk_ids: number[]
+    technical_group_ids: number[]
+  }) =>
+    request<{
+      success: boolean
+      tiflux?: { success: boolean; data: Record<string, unknown> }
+    }>('/consulta/tiflux/vinculos', { method: 'POST', body: JSON.stringify(body) }),
   dormantReport: (months = 24, limit = 100) =>
     request<Record<string, unknown>>(`/relatorio/empresas-inativas?months=${months}&limit=${limit}`),
 
